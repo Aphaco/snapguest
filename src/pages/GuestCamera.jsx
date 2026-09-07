@@ -8,14 +8,9 @@ import {
   FiX,
   FiImage,
   FiRefreshCw,
-  FiGrid,
   FiUpload,
-  FiCheck,
-  FiHeart,
-  FiEye,
   FiTv
 } from 'react-icons/fi';
-import { FaQrcode } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import './GuestCamera.css';
 
@@ -391,7 +386,7 @@ function GuestCamera() {
   };
 
   // ============================================================
-  // CAPTURE PHOTO - FIXED
+  // CAPTURE PHOTO - FIXED filters
   // ============================================================
   const capturePhoto = () => {
     if (!videoRef.current || !isCameraReady) {
@@ -410,78 +405,91 @@ function GuestCamera() {
         return;
       }
 
-      // Set canvas dimensions to match video
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
 
       const ctx = canvas.getContext('2d');
-      
-      // Draw the current video frame
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Apply camera effects if not in original mode
+      console.log('🎨 Applying filter:', cameraMode);
+      
+      // Apply effects
       if (cameraMode !== 'original') {
         applyCameraEffects(ctx, canvas.width, canvas.height);
       }
 
-      // Convert to data URL
       const imageData = canvas.toDataURL('image/jpeg', 0.92);
       setCapturedImage(imageData);
       setShowPreview(true);
       
-      console.log('✅ Photo captured successfully');
+      console.log('✅ Photo captured with filter:', cameraMode);
     } catch (error) {
       console.error('Error capturing photo:', error);
-      toast.error('Failed to capture photo: ' + error.message);
+      toast.error('Failed to capture photo');
     }
   };
 
+  // ============================================================
+  // APPLY CAMERA EFFECTS - FIXED
+  // ============================================================
   const applyCameraEffects = (ctx, width, height) => {
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
+    console.log('🎨 Applying effect:', cameraMode);
+
     switch (cameraMode) {
       case 'disposable':
+        // Grain effect
         for (let i = 0; i < data.length; i += 4) {
           const grain = (Math.random() - 0.5) * 20;
           data[i] = Math.min(255, Math.max(0, data[i] + grain));
-          data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + grain));
-          data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + grain));
+          data[i+1] = Math.min(255, Math.max(0, data[i+1] + grain));
+          data[i+2] = Math.min(255, Math.max(0, data[i+2] + grain));
         }
+        // Warm tint
         for (let i = 0; i < data.length; i += 4) {
           data[i] = Math.min(255, data[i] + 10);
-          data[i + 2] = Math.max(0, data[i + 2] - 5);
+          data[i+2] = Math.max(0, data[i+2] - 5);
         }
+        console.log('✅ Disposable filter applied');
         break;
 
       case 'film':
+        // Film grain
         for (let i = 0; i < data.length; i += 4) {
           const grain = (Math.random() - 0.5) * 15;
           data[i] = Math.min(255, Math.max(0, data[i] + grain));
-          data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + grain));
-          data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + grain));
+          data[i+1] = Math.min(255, Math.max(0, data[i+1] + grain));
+          data[i+2] = Math.min(255, Math.max(0, data[i+2] + grain));
         }
+        // Slight fade
         for (let i = 0; i < data.length; i += 4) {
           data[i] = Math.min(255, data[i] + 15);
-          data[i + 1] = Math.min(255, data[i + 1] + 15);
-          data[i + 2] = Math.min(255, data[i + 2] + 15);
+          data[i+1] = Math.min(255, data[i+1] + 15);
+          data[i+2] = Math.min(255, data[i+2] + 15);
         }
+        console.log('✅ Film filter applied');
         break;
 
       case 'retro':
+        // 90s digital camera look
         for (let i = 0; i < data.length; i += 4) {
           data[i] = Math.min(255, data[i] + 20);
-          data[i + 2] = Math.max(0, data[i + 2] - 10);
+          data[i+2] = Math.max(0, data[i+2] - 10);
         }
+        // Reduce saturation
         for (let i = 0; i < data.length; i += 4) {
-          const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          const gray = (data[i] + data[i+1] + data[i+2]) / 3;
           data[i] = data[i] * 0.8 + gray * 0.2;
-          data[i + 1] = data[i + 1] * 0.8 + gray * 0.2;
-          data[i + 2] = data[i + 2] * 0.8 + gray * 0.2;
+          data[i+1] = data[i+1] * 0.8 + gray * 0.2;
+          data[i+2] = data[i+2] * 0.8 + gray * 0.2;
         }
+        console.log('✅ Retro filter applied');
         break;
 
       default:
+        console.log('Original mode - no filter applied');
         break;
     }
 
@@ -489,19 +497,15 @@ function GuestCamera() {
   };
 
   // ============================================================
-  // START RECORDING - FIXED with correct MIME type
+  // START RECORDING - FIXED
   // ============================================================
   const startRecording = async () => {
-    if (!streamRef.current || isRecording) {
-      console.log('Cannot record: no stream or already recording');
-      return;
-    }
+    if (!streamRef.current || isRecording) return;
 
     chunksRef.current = [];
     const stream = streamRef.current;
 
     try {
-      // Check what MIME types are supported
       const mimeTypes = [
         'video/webm;codecs=vp8',
         'video/webm;codecs=vp9',
@@ -516,14 +520,9 @@ function GuestCamera() {
           break;
         }
       }
-      
-      if (!selectedMimeType) {
-        console.warn('No supported MIME type found, using default');
-      }
 
       const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
-      
-      console.log('Using MIME type:', selectedMimeType || 'default');
+      console.log('🎥 Recording with MIME type:', selectedMimeType || 'default');
 
       const mediaRecorder = new MediaRecorder(stream, options);
       
@@ -550,33 +549,22 @@ function GuestCamera() {
         }
       };
 
-      mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
-        toast.error('Recording error occurred');
-        setIsRecording(false);
-      };
-
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(1000); // Capture in 1-second chunks
+      mediaRecorder.start(1000);
       setIsRecording(true);
-      console.log('✅ Video recording started');
+      console.log('✅ Recording started');
 
     } catch (error) {
       console.error('Error starting recording:', error);
-      toast.error('Failed to start recording: ' + error.message);
+      toast.error('Failed to start recording');
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      try {
-        mediaRecorderRef.current.stop();
-        mediaRecorderRef.current = null;
-        console.log('Stopping recording...');
-      } catch (error) {
-        console.error('Error stopping recording:', error);
-        setIsRecording(false);
-      }
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+      console.log('⏹️ Recording stopped');
     }
   };
 
@@ -592,8 +580,15 @@ function GuestCamera() {
     }
   };
 
+  // ============================================================
+  // UPLOAD MEDIA - FIXED with count update
+  // ============================================================
   const uploadMedia = async () => {
-    if (!event) return;
+    if (!event) {
+      toast.error('Event not loaded');
+      return;
+    }
+    
     if (uploadCount >= uploadLimit) {
       toast.error(`Upload limit reached (${uploadLimit})`);
       return;
@@ -622,6 +617,8 @@ function GuestCamera() {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
       const file = new File([blob], fileName, { type: blob.type });
 
+      console.log('📤 Uploading:', fileName);
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('event-media')
         .upload(`events/${event.id}/${fileName}`, file);
@@ -643,14 +640,24 @@ function GuestCamera() {
 
       if (insertError) throw insertError;
 
+      // ✅ UPDATE THE COUNT
       if (guestSession) {
         const newCount = uploadCount + 1;
-        await supabase
+        console.log('📊 Updating count:', uploadCount, '→', newCount);
+        
+        const { error: sessionError } = await supabase
           .from('guest_sessions')
-          .update({ upload_count: newCount, last_active_at: new Date().toISOString() })
+          .update({ 
+            upload_count: newCount, 
+            last_active_at: new Date().toISOString() 
+          })
           .eq('id', guestSession.id);
-        setUploadCount(newCount);
-        localStorage.setItem(`upload_count_${eventSlug}`, newCount);
+
+        if (!sessionError) {
+          setUploadCount(newCount);
+          localStorage.setItem(`upload_count_${eventSlug}`, newCount);
+          console.log('✅ Count updated to:', newCount);
+        }
       }
 
       toast.success(`${fileType === 'photo' ? 'Photo' : 'Video'} uploaded! 📸`);
@@ -665,7 +672,7 @@ function GuestCamera() {
 
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload: ' + (error.message || 'Unknown error'));
+      toast.error('Failed to upload');
     } finally {
       setUploading(false);
     }
@@ -692,10 +699,7 @@ function GuestCamera() {
         .order('uploaded_at', { ascending: false })
         .limit(50);
 
-      if (error) {
-        console.error('Gallery query error:', error);
-        throw error;
-      }
+      if (error) throw error;
       
       console.log('✅ Gallery data loaded:', data?.length || 0, 'items');
       

@@ -1,20 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Container, Button, Spinner, Badge } from 'react-bootstrap';
+import { Button, Spinner, Badge } from 'react-bootstrap';
 import { 
   FiArrowLeft, 
-  FiRefreshCw, 
-  FiHeart, 
-  FiUsers,
-  FiCamera,
-  FiVideo,
+  FiMaximize2, 
+  FiMinimize2,
   FiImage,
-  FiTv,
-  FiMaximize2,
-  FiMinimize2
+  FiVideo,
+  FiCamera
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import './LiveWall.css';
 
 function LiveWall() {
   const { eventSlug } = useParams();
@@ -25,7 +22,6 @@ function LiveWall() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
   const [stats, setStats] = useState({ photos: 0, videos: 0, total: 0 });
-  const slideshowRef = useRef(null);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -43,7 +39,6 @@ function LiveWall() {
           table: 'media'
         },
         (payload) => {
-          // Only show approved media from this event
           if (payload.new.event_id === event?.id && payload.new.approved) {
             const newMedia = {
               id: payload.new.id,
@@ -58,8 +53,6 @@ function LiveWall() {
               photos: prev.photos + (payload.new.type === 'photo' ? 1 : 0),
               videos: prev.videos + (payload.new.type === 'video' ? 1 : 0)
             }));
-            
-            // Show notification for new upload
             toast.success('New moment captured! 📸', {
               duration: 2000,
               position: 'bottom-center'
@@ -113,7 +106,6 @@ function LiveWall() {
     try {
       setLoading(true);
       
-      // Get event ID first
       const { data: eventData } = await supabase
         .from('events')
         .select('id')
@@ -171,88 +163,64 @@ function LiveWall() {
 
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100 bg-dark">
+      <div className="live-wall-loading">
         <Spinner animation="border" variant="light" />
       </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="min-vh-100 bg-dark text-white"
-      style={{ 
-        background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #16213e 100%)'
-      }}
-    >
+    <div className="live-wall-container">
       {/* Top Bar */}
-      <div className="position-absolute top-0 start-0 end-0 p-3 p-md-4" style={{ zIndex: 100, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%)' }}>
-        <div className="d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center gap-3">
-            <Link to={`/e/${eventSlug}`} className="text-white text-decoration-none">
-              <Button variant="outline-light" size="sm" className="rounded-pill px-3">
-                <FiArrowLeft size={16} className="me-1" />
-                Back
-              </Button>
-            </Link>
-            <div>
-              <h5 className="fw-bold mb-0">{event?.name}</h5>
-              <div className="d-flex gap-3 text-white-50 small">
-                <span>{stats.total} moments</span>
-                <span>•</span>
-                <span>{stats.photos} photos</span>
-                <span>•</span>
-                <span>{stats.videos} videos</span>
-              </div>
+      <div className="live-wall-top-bar">
+        <div className="live-wall-header">
+          <Link to={`/e/${eventSlug}`} className="live-wall-back">
+            <FiArrowLeft size={18} />
+            <span className="d-none d-sm-inline">Back</span>
+          </Link>
+          <div className="live-wall-title">
+            <h5 className="live-wall-name">{event?.name}</h5>
+            <div className="live-wall-stats">
+              <span>{stats.total} moments</span>
+              <span>•</span>
+              <span>{stats.photos} photos</span>
+              <span>•</span>
+              <span>{stats.videos} videos</span>
             </div>
           </div>
-          <div className="d-flex gap-2">
-            <Button
-              variant="outline-light"
-              size="sm"
-              onClick={toggleFullscreen}
-              className="rounded-pill px-3"
-            >
-              {isFullscreen ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
-            </Button>
-          </div>
         </div>
+        <button
+          className="live-wall-fullscreen"
+          onClick={toggleFullscreen}
+        >
+          {isFullscreen ? <FiMinimize2 size={18} /> : <FiMaximize2 size={18} />}
+        </button>
       </div>
 
       {/* Main Display */}
-      <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh', padding: '80px 20px 100px' }}>
+      <div className="live-wall-main">
         {media.length === 0 ? (
-          <div className="text-center">
-            <div className="display-1 mb-4">🎉</div>
-            <h3 className="fw-bold mb-2">Waiting for Moments</h3>
-            <p className="text-white-50">
+          <div className="live-wall-empty">
+            <div className="live-wall-empty-icon">🎉</div>
+            <h3 className="live-wall-empty-title">Waiting for Moments</h3>
+            <p className="live-wall-empty-text">
               Photos and videos will appear here as guests upload them
             </p>
-            <div className="mt-3">
-              <div className="d-flex gap-3 justify-content-center">
-                <div className="bg-white bg-opacity-10 rounded-3 p-3">
-                  <FiCamera size={24} className="d-block mx-auto mb-1" />
-                  <small>Scan QR to upload</small>
-                </div>
-              </div>
+            <div className="live-wall-empty-hint">
+              <FiCamera size={20} />
+              <span>Scan QR to upload</span>
             </div>
           </div>
         ) : (
-          <div className="position-relative w-100" style={{ maxWidth: '1200px' }}>
-            {/* Main Media Display */}
-            <div className="position-relative rounded-4 overflow-hidden" style={{ 
-              aspectRatio: '16/9',
-              backgroundColor: 'rgba(0,0,0,0.4)',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-            }}>
+          <div className="live-wall-media-wrapper">
+            <div className="live-wall-media">
               {currentItem && (
-                <div className="w-100 h-100 d-flex align-items-center justify-content-center">
+                <>
                   {currentItem.type === 'photo' ? (
                     <img
                       src={currentItem.file_url}
                       alt="Event moment"
-                      className="w-100 h-100"
-                      style={{ objectFit: 'contain' }}
+                      className="live-wall-image"
                     />
                   ) : (
                     <video
@@ -260,121 +228,71 @@ function LiveWall() {
                       controls
                       autoPlay
                       muted
-                      className="w-100 h-100"
-                      style={{ objectFit: 'contain' }}
+                      className="live-wall-video"
                     />
                   )}
-                </div>
+                </>
               )}
-
-              {/* Overlay Controls */}
-              <div className="position-absolute bottom-0 start-0 end-0 p-4" style={{ 
-                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)'
-              }}>
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <Badge bg="light" className="text-dark px-3 py-2">
-                      {currentItem?.type === 'photo' ? '📸 Photo' : '🎥 Video'}
-                    </Badge>
-                    <span className="text-white-50 ms-2 small">
-                      {new Date(currentItem?.uploaded_at).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <div className="d-flex gap-2">
-                    <Button
-                      variant="outline-light"
-                      size="sm"
-                      onClick={() => setAutoPlay(!autoPlay)}
-                      className="rounded-pill px-3"
-                    >
-                      {autoPlay ? '⏸️ Pause' : '▶️ Play'}
-                    </Button>
-                    <Button
-                      variant="outline-light"
-                      size="sm"
-                      onClick={() => setCurrentIndex(prev => (prev - 1 + media.length) % media.length)}
-                      className="rounded-pill px-3"
-                      disabled={media.length <= 1}
-                    >
-                      ◀ Prev
-                    </Button>
-                    <Button
-                      variant="outline-light"
-                      size="sm"
-                      onClick={() => setCurrentIndex(prev => (prev + 1) % media.length)}
-                      className="rounded-pill px-3"
-                      disabled={media.length <= 1}
-                    >
-                      Next ▶
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* Thumbnails */}
-            {media.length > 1 && (
-              <div className="mt-3 hide-scrollbar" style={{ overflowX: 'auto' }}>
-                <div className="d-flex gap-2" style={{ width: 'max-content' }}>
-                  {media.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className={`rounded-3 overflow-hidden cursor-pointer ${index === currentIndex ? 'ring-2 ring-primary' : 'opacity-70'}`}
-                      style={{ width: '80px', height: '60px', flexShrink: 0 }}
-                      onClick={() => setCurrentIndex(index)}
-                    >
-                      {item.type === 'photo' ? (
-                        <img
-                          src={item.file_url}
-                          alt={`Thumbnail ${index}`}
-                          className="w-100 h-100"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div className="w-100 h-100 bg-dark d-flex align-items-center justify-content-center">
-                          <FiVideo size={20} className="text-white-50" />
-                        </div>
-                      )}
-                      {index === currentIndex && (
-                        <div className="position-absolute top-0 start-0 end-0 bottom-0 bg-primary bg-opacity-25" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Mobile Controls - Bottom */}
+            <div className="live-wall-mobile-controls">
+              <button
+                className="live-wall-control-btn"
+                onClick={() => setAutoPlay(!autoPlay)}
+              >
+                {autoPlay ? '⏸' : '▶'}
+              </button>
+              <button
+                className="live-wall-control-btn"
+                onClick={() => setCurrentIndex(prev => (prev - 1 + media.length) % media.length)}
+                disabled={media.length <= 1}
+              >
+                ◀
+              </button>
+              <span className="live-wall-counter">
+                {currentIndex + 1}/{media.length}
+              </span>
+              <button
+                className="live-wall-control-btn"
+                onClick={() => setCurrentIndex(prev => (prev + 1) % media.length)}
+                disabled={media.length <= 1}
+              >
+                ▶
+              </button>
+            </div>
+
+            {/* Badge */}
+            <div className="live-wall-badge">
+              <span className="live-wall-live-dot"></span>
+              LIVE
+            </div>
           </div>
         )}
       </div>
 
-      {/* Bottom Stats Bar */}
-      <div className="position-absolute bottom-0 start-0 end-0 p-3" style={{ 
-        background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)',
-        zIndex: 100
-      }}>
-        <div className="d-flex justify-content-center gap-4 text-white-50 small">
-          <span className="d-flex align-items-center gap-1">
-            <FiUsers size={14} />
-            {Math.max(1, Math.floor(media.length / 3))} contributors
-          </span>
-          <span className="d-flex align-items-center gap-1">
-            <FiHeart size={14} />
-            {media.length} moments
-          </span>
-          <span className="d-flex align-items-center gap-1">
-            <FiTv size={14} />
-            Live
-          </span>
+      {/* Thumbnails - Desktop Only */}
+      {media.length > 1 && (
+        <div className="live-wall-thumbnails">
+          <div className="live-wall-thumbnails-scroll">
+            {media.map((item, index) => (
+              <div
+                key={item.id}
+                className={`live-wall-thumbnail ${index === currentIndex ? 'active' : ''}`}
+                onClick={() => setCurrentIndex(index)}
+              >
+                {item.type === 'photo' ? (
+                  <img src={item.file_url} alt={`Thumbnail ${index}`} />
+                ) : (
+                  <div className="live-wall-thumbnail-video">
+                    <FiVideo size={16} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* Live Indicator */}
-      <div className="position-absolute top-0 end-0 m-3 m-md-4" style={{ zIndex: 101 }}>
-        <span className="badge bg-danger animate-pulse d-flex align-items-center gap-1 px-3 py-2">
-          <span className="d-inline-block rounded-circle bg-white" style={{ width: '8px', height: '8px' }} />
-          LIVE
-        </span>
-      </div>
+      )}
     </div>
   );
 }
