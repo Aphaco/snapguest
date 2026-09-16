@@ -14,6 +14,20 @@ import {
 import toast from 'react-hot-toast';
 import './GuestCamera.css';
 
+// ============================================================
+// FILTER DEFINITIONS
+// ============================================================
+// CSS filter strings used both for the live <video> preview
+// (via inline style) and for the captured photo
+// (via canvas ctx.filter). Keeping them in one place ensures
+// the preview matches exactly what gets saved.
+const FILTERS = {
+  original: 'none',
+  disposable: 'sepia(0.35) contrast(1.15) saturate(1.3) brightness(1.05)',
+  film: 'sepia(0.5) contrast(1.1) saturate(0.85) brightness(1.08)',
+  retro: 'contrast(1.25) saturate(1.4) hue-rotate(-10deg) brightness(0.95)'
+};
+
 function GuestCamera() {
   const { eventSlug } = useParams();
   const navigate = useNavigate();
@@ -50,6 +64,13 @@ function GuestCamera() {
   const [galleryLoading, setGalleryLoading] = useState(false);
 
   const showPermissionOverlay = !hasPermission && !isCameraReady;
+
+  // ============================================================
+  // GET CURRENT CSS FILTER
+  // ============================================================
+  const getCurrentFilter = () => {
+    return FILTERS[cameraMode] || 'none';
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -386,7 +407,7 @@ function GuestCamera() {
   };
 
   // ============================================================
-  // CAPTURE PHOTO - FIXED filters
+  // CAPTURE PHOTO - NOW USES ctx.filter SO PHOTO MATCHES PREVIEW
   // ============================================================
   const capturePhoto = () => {
     if (!videoRef.current || !isCameraReady) {
@@ -409,91 +430,26 @@ function GuestCamera() {
       canvas.height = video.videoHeight || 480;
 
       const ctx = canvas.getContext('2d');
+
+      // Apply the SAME filter that's shown on the live preview
+      const filter = getCurrentFilter();
+      ctx.filter = filter;
+      console.log('🎨 Capturing with filter:', cameraMode, '→', filter);
+
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      console.log('🎨 Applying filter:', cameraMode);
-      
-      // Apply effects
-      if (cameraMode !== 'original') {
-        applyCameraEffects(ctx, canvas.width, canvas.height);
-      }
+      // Reset filter so it doesn't affect future draws
+      ctx.filter = 'none';
 
       const imageData = canvas.toDataURL('image/jpeg', 0.92);
       setCapturedImage(imageData);
       setShowPreview(true);
-      
+
       console.log('✅ Photo captured with filter:', cameraMode);
     } catch (error) {
       console.error('Error capturing photo:', error);
       toast.error('Failed to capture photo');
     }
-  };
-
-  // ============================================================
-  // APPLY CAMERA EFFECTS - FIXED
-  // ============================================================
-  const applyCameraEffects = (ctx, width, height) => {
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    console.log('🎨 Applying effect:', cameraMode);
-
-    switch (cameraMode) {
-      case 'disposable':
-        // Grain effect
-        for (let i = 0; i < data.length; i += 4) {
-          const grain = (Math.random() - 0.5) * 20;
-          data[i] = Math.min(255, Math.max(0, data[i] + grain));
-          data[i+1] = Math.min(255, Math.max(0, data[i+1] + grain));
-          data[i+2] = Math.min(255, Math.max(0, data[i+2] + grain));
-        }
-        // Warm tint
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.min(255, data[i] + 10);
-          data[i+2] = Math.max(0, data[i+2] - 5);
-        }
-        console.log('✅ Disposable filter applied');
-        break;
-
-      case 'film':
-        // Film grain
-        for (let i = 0; i < data.length; i += 4) {
-          const grain = (Math.random() - 0.5) * 15;
-          data[i] = Math.min(255, Math.max(0, data[i] + grain));
-          data[i+1] = Math.min(255, Math.max(0, data[i+1] + grain));
-          data[i+2] = Math.min(255, Math.max(0, data[i+2] + grain));
-        }
-        // Slight fade
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.min(255, data[i] + 15);
-          data[i+1] = Math.min(255, data[i+1] + 15);
-          data[i+2] = Math.min(255, data[i+2] + 15);
-        }
-        console.log('✅ Film filter applied');
-        break;
-
-      case 'retro':
-        // 90s digital camera look
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.min(255, data[i] + 20);
-          data[i+2] = Math.max(0, data[i+2] - 10);
-        }
-        // Reduce saturation
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = (data[i] + data[i+1] + data[i+2]) / 3;
-          data[i] = data[i] * 0.8 + gray * 0.2;
-          data[i+1] = data[i+1] * 0.8 + gray * 0.2;
-          data[i+2] = data[i+2] * 0.8 + gray * 0.2;
-        }
-        console.log('✅ Retro filter applied');
-        break;
-
-      default:
-        console.log('Original mode - no filter applied');
-        break;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
   };
 
   // ============================================================
@@ -848,7 +804,11 @@ function GuestCamera() {
             height: '100%',
             objectFit: 'cover',
             backgroundColor: '#000',
-            display: showPermissionOverlay ? 'none' : 'block'
+            display: showPermissionOverlay ? 'none' : 'block',
+            // ⭐ THIS IS THE KEY FIX: apply the filter to the live preview
+            filter: getCurrentFilter(),
+            WebkitFilter: getCurrentFilter(),
+            transition: 'filter 0.25s ease'
           }}
         />
         <canvas
