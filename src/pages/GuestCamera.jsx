@@ -1,12 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
 import { Link, useNavigate, useParams } from 'react-router-dom';
+
 import { supabase } from '../lib/supabase';
+
 import {
   FiArrowLeft,
   FiCamera,
   FiCheck,
-  FiChevronLeft,
-  FiChevronRight,
   FiClock,
   FiDownload,
   FiImage,
@@ -18,7 +24,9 @@ import {
   FiVideo,
   FiX,
 } from 'react-icons/fi';
+
 import toast from 'react-hot-toast';
+
 import './GuestCamera.css';
 
 /* ============================================================
@@ -27,12 +35,15 @@ import './GuestCamera.css';
 
 const FILTERS = {
   original: 'none',
+
   disposable:
-    'sepia(0.35) contrast(1.15) saturate(1.3) brightness(1.05)',
+    'contrast(1.12) saturate(1.18) sepia(0.18) brightness(1.04)',
+
   film:
-    'sepia(0.5) contrast(1.1) saturate(0.85) brightness(1.08)',
+    'contrast(1.10) saturate(0.90) sepia(0.22) brightness(1.04)',
+
   retro:
-    'contrast(1.25) saturate(1.4) hue-rotate(-10deg) brightness(0.95)',
+    'contrast(1.18) saturate(1.25) sepia(0.14) hue-rotate(-8deg) brightness(1.02)',
 };
 
 const FILTER_LABELS = {
@@ -43,37 +54,94 @@ const FILTER_LABELS = {
 };
 
 /* ============================================================
+   FILTER PREVIEW
+   Uses the REAL camera feed instead of random placeholder text.
+============================================================ */
+
+function FilterPreview({ stream, filter, isFrontCamera }) {
+  const previewVideoRef = useRef(null);
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+
+    if (!video || !stream) return;
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+
+    const playPreview = async () => {
+      try {
+        await video.play();
+      } catch (error) {
+        console.warn('Filter preview playback:', error);
+      }
+    };
+
+    playPreview();
+
+    return () => {
+      if (video) {
+        video.srcObject = null;
+      }
+    };
+  }, [stream]);
+
+  return (
+    <span className="guest-camera-filter-preview">
+      <video
+        ref={previewVideoRef}
+        className={
+          isFrontCamera
+            ? 'guest-camera-filter-preview-video is-front-camera'
+            : 'guest-camera-filter-preview-video'
+        }
+        muted
+        autoPlay
+        playsInline
+        style={{
+          filter,
+        }}
+        aria-hidden="true"
+      />
+
+      <span className="guest-camera-filter-preview-shine" />
+    </span>
+  );
+}
+
+/* ============================================================
    HELPERS
 ============================================================ */
 
 const createId = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (
+    typeof crypto !== 'undefined' &&
+    crypto.randomUUID
+  ) {
     return crypto.randomUUID();
   }
 
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
 };
 
 const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
 
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(
-    2,
-    '0'
-  )}`;
+  return `${String(mins).padStart(2, '0')}:${String(
+    secs
+  ).padStart(2, '0')}`;
 };
 
 /* ============================================================
    DOWNLOAD HELPER
-   ============================================================ */
-/*
- * Tries the Web Share API first (best on iOS), then falls
- * back to a programmatic anchor download (best on Android/
- * desktop). Returns true if a save action was triggered.
- */
+============================================================ */
+
 const saveFileToDevice = async (blob, filename) => {
-  // ---- Try Web Share API (iOS Safari, some Android) ----
   if (
     typeof navigator !== 'undefined' &&
     navigator.share &&
@@ -89,32 +157,46 @@ const saveFileToDevice = async (blob, filename) => {
           files: [file],
           title: 'SnapGuest moment',
         });
+
         return true;
       }
     } catch (error) {
-      // User cancelled share → fall through to anchor download
       if (error?.name === 'AbortError') {
         return false;
       }
-      console.warn('Share API failed, using anchor download:', error);
+
+      console.warn(
+        'Share API failed, using anchor download:',
+        error
+      );
     }
   }
 
-  // ---- Fallback: anchor download (Android/Desktop) ----
   try {
     const url = URL.createObjectURL(blob);
+
     const link = document.createElement('a');
+
     link.href = url;
     link.download = filename;
 
     document.body.appendChild(link);
+
     link.click();
+
     link.remove();
 
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 2000);
+
     return true;
   } catch (error) {
-    console.error('Anchor download failed:', error);
+    console.error(
+      'Anchor download failed:',
+      error
+    );
+
     return false;
   }
 };
@@ -125,89 +207,204 @@ const saveFileToDevice = async (blob, filename) => {
 
 function GuestCamera() {
   const { eventSlug } = useParams();
+
   const navigate = useNavigate();
 
-  /* -----------------------------
-     Refs
-  ----------------------------- */
+  /* ============================================================
+     REFS
+  ============================================================ */
 
   const videoRef = useRef(null);
+
   const canvasRef = useRef(null);
+
+  const recordingCanvasRef = useRef(null);
+
   const cameraStageRef = useRef(null);
 
   const streamRef = useRef(null);
+
   const mediaRecorderRef = useRef(null);
+
   const chunksRef = useRef([]);
 
   const isStartingCameraRef = useRef(false);
+
   const previewVideoUrlRef = useRef(null);
 
-  /* -----------------------------
-     Event / session
-  ----------------------------- */
+  const recordingAnimationFrameRef = useRef(null);
+
+  /* ============================================================
+     EVENT / SESSION
+  ============================================================ */
 
   const [event, setEvent] = useState(null);
-  const [guestSession, setGuestSession] = useState(null);
+
+  const [guestSession, setGuestSession] =
+    useState(null);
 
   const [loading, setLoading] = useState(true);
-  const [sessionLoading, setSessionLoading] = useState(true);
 
-  const [uploadCount, setUploadCount] = useState(0);
-  const [uploadLimit, setUploadLimit] = useState(10);
+  const [sessionLoading, setSessionLoading] =
+    useState(true);
 
-  /* -----------------------------
-     Camera
-  ----------------------------- */
+  const [uploadCount, setUploadCount] =
+    useState(0);
 
-  const [hasPermission, setHasPermission] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState(null);
-  const [cameraStarting, setCameraStarting] = useState(false);
+  const [uploadLimit, setUploadLimit] =
+    useState(10);
 
-  const [facingMode, setFacingMode] = useState('environment');
-  const [isLaptop, setIsLaptop] = useState(false);
+  /* ============================================================
+     CAMERA
+  ============================================================ */
 
-  /* -----------------------------
-     Capture
-  ----------------------------- */
+  const [hasPermission, setHasPermission] =
+    useState(false);
+
+  const [isCameraReady, setIsCameraReady] =
+    useState(false);
+
+  const [cameraError, setCameraError] =
+    useState(null);
+
+  const [cameraStarting, setCameraStarting] =
+    useState(false);
+
+  const [facingMode, setFacingMode] =
+    useState('environment');
+
+  const [isLaptop, setIsLaptop] =
+    useState(false);
+
+  /* ============================================================
+     CAPTURE
+  ============================================================ */
 
   const [mode, setMode] = useState('photo');
-  const [cameraMode, setCameraMode] = useState('original');
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
+  const [cameraMode, setCameraMode] =
+    useState('original');
 
-  const [capturedImage, setCapturedImage] = useState(null);
-  const [capturedVideo, setCapturedVideo] = useState(null);
-  const [capturedVideoBlob, setCapturedVideoBlob] = useState(null);
+  const [isRecording, setIsRecording] =
+    useState(false);
 
-  const [showPreview, setShowPreview] = useState(false);
-  const [publishToWall, setPublishToWall] = useState(true);
+  const [recordingTime, setRecordingTime] =
+    useState(0);
 
-  const [uploading, setUploading] = useState(false);
+  const [capturedImage, setCapturedImage] =
+    useState(null);
 
-  /* -----------------------------
-     Gallery
-  ----------------------------- */
+  const [capturedVideo, setCapturedVideo] =
+    useState(null);
 
-  const [galleryMedia, setGalleryMedia] = useState([]);
-  const [showGallery, setShowGallery] = useState(false);
-  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [capturedVideoBlob, setCapturedVideoBlob] =
+    useState(null);
 
-  /* -----------------------------
-     Misc
-  ----------------------------- */
+  const [showPreview, setShowPreview] =
+    useState(false);
 
-  const [showFilters, setShowFilters] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
+  const [publishToWall, setPublishToWall] =
+    useState(true);
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  /* ============================================================
+     GALLERY
+  ============================================================ */
+
+  const [galleryMedia, setGalleryMedia] =
+    useState([]);
+
+  const [showGallery, setShowGallery] =
+    useState(false);
+
+  const [galleryLoading, setGalleryLoading] =
+    useState(false);
+
+  /* ============================================================
+     MISC
+  ============================================================ */
+
+  const [showFilters, setShowFilters] =
+    useState(false);
+
+  const [showInfo, setShowInfo] =
+    useState(false);
 
   /* ============================================================
      FILTER
   ============================================================ */
 
   const getCurrentFilter = useCallback(() => {
-    return FILTERS[cameraMode] || FILTERS.original;
+    return (
+      FILTERS[cameraMode] ||
+      FILTERS.original
+    );
   }, [cameraMode]);
+
+  /* ============================================================
+     CROP CALCULATION
+
+     Keeps the same portrait 3:4 framing while allowing
+     the original camera resolution to be retained.
+  ============================================================ */
+
+  const getCropData = useCallback(() => {
+    const video = videoRef.current;
+    const stage = cameraStageRef.current;
+
+    if (!video) return null;
+
+    const sourceWidth = video.videoWidth;
+    const sourceHeight = video.videoHeight;
+
+    if (!sourceWidth || !sourceHeight) {
+      return null;
+    }
+
+    const stageWidth =
+      stage?.clientWidth || 900;
+
+    const stageHeight =
+      stage?.clientHeight || 1200;
+
+    const targetRatio =
+      stageWidth / stageHeight;
+
+    const sourceRatio =
+      sourceWidth / sourceHeight;
+
+    let cropWidth = sourceWidth;
+    let cropHeight = sourceHeight;
+
+    let cropX = 0;
+    let cropY = 0;
+
+    if (sourceRatio > targetRatio) {
+      cropWidth =
+        sourceHeight * targetRatio;
+
+      cropX =
+        (sourceWidth - cropWidth) / 2;
+    } else {
+      cropHeight =
+        sourceWidth / targetRatio;
+
+      cropY =
+        (sourceHeight - cropHeight) / 2;
+    }
+
+    return {
+      sourceWidth,
+      sourceHeight,
+      cropWidth,
+      cropHeight,
+      cropX,
+      cropY,
+      targetRatio,
+    };
+  }, []);
 
   /* ============================================================
      LOAD EVENT
@@ -215,27 +412,40 @@ function GuestCamera() {
 
   const loadEvent = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('slug', eventSlug)
-        .single();
+      const { data, error } =
+        await supabase
+          .from('events')
+          .select('*')
+          .eq('slug', eventSlug)
+          .single();
 
       if (error) throw error;
 
       if (!data) {
         toast.error('Event not found');
+
         navigate('/');
+
         return null;
       }
 
       setEvent(data);
-      setUploadLimit(data.guest_upload_limit || 10);
+
+      setUploadLimit(
+        data.guest_upload_limit || 10
+      );
 
       return data;
     } catch (error) {
-      console.error('Error loading event:', error);
-      toast.error('Failed to load event');
+      console.error(
+        'Error loading event:',
+        error
+      );
+
+      toast.error(
+        'Failed to load event'
+      );
+
       return null;
     }
   }, [eventSlug, navigate]);
@@ -244,136 +454,207 @@ function GuestCamera() {
      CREATE / RESTORE GUEST SESSION
   ============================================================ */
 
-  const createGuestSession = useCallback(async (eventId) => {
-    if (!eventId) return null;
+  const createGuestSession =
+    useCallback(
+      async (eventId) => {
+        if (!eventId) return null;
 
-    setSessionLoading(true);
+        setSessionLoading(true);
 
-    try {
-      const storageKey = `guest_session_${eventSlug}`;
+        try {
+          const storageKey =
+            `guest_session_${eventSlug}`;
 
-      let token = localStorage.getItem(storageKey);
+          let token =
+            localStorage.getItem(
+              storageKey
+            );
 
-      if (token) {
-        const { data, error } = await supabase
-          .from('guest_sessions')
-          .select('*')
-          .eq('session_token', token)
-          .eq('event_id', eventId)
-          .single();
+          if (token) {
+            const { data, error } =
+              await supabase
+                .from('guest_sessions')
+                .select('*')
+                .eq(
+                  'session_token',
+                  token
+                )
+                .eq(
+                  'event_id',
+                  eventId
+                )
+                .single();
 
-        if (data && !error) {
+            if (data && !error) {
+              setGuestSession(data);
+
+              setUploadCount(
+                data.upload_count || 0
+              );
+
+              return data;
+            }
+          }
+
+          token = createId();
+
+          const { data, error } =
+            await supabase
+              .from('guest_sessions')
+              .insert([
+                {
+                  event_id: eventId,
+                  session_token: token,
+                  upload_count: 0,
+                },
+              ])
+              .select()
+              .single();
+
+          if (error) {
+            console.error(
+              'Guest session creation failed:',
+              error
+            );
+
+            throw error;
+          }
+
+          localStorage.setItem(
+            storageKey,
+            token
+          );
+
           setGuestSession(data);
-          setUploadCount(data.upload_count || 0);
+
+          setUploadCount(
+            data.upload_count || 0
+          );
+
           return data;
+        } catch (error) {
+          console.error(
+            'Error creating guest session:',
+            error
+          );
+
+          toast.error(
+            'Could not create your guest session. Please refresh and try again.'
+          );
+
+          return null;
+        } finally {
+          setSessionLoading(false);
         }
-      }
-
-      token = createId();
-
-      const { data, error } = await supabase
-        .from('guest_sessions')
-        .insert([
-          {
-            event_id: eventId,
-            session_token: token,
-            upload_count: 0,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Guest session creation failed:', error);
-        throw error;
-      }
-
-      localStorage.setItem(storageKey, token);
-
-      setGuestSession(data);
-      setUploadCount(data.upload_count || 0);
-
-      return data;
-    } catch (error) {
-      console.error('Error creating guest session:', error);
-      toast.error(
-        'Could not create your guest session. Please refresh and try again.'
-      );
-      return null;
-    } finally {
-      setSessionLoading(false);
-    }
-  }, [eventSlug]);
+      },
+      [eventSlug]
+    );
 
   /* ============================================================
      DEVICE DETECTION
   ============================================================ */
 
-  const detectDeviceType = useCallback(async () => {
-    try {
-      if (!navigator.mediaDevices?.enumerateDevices) {
-        setFacingMode('user');
-        return;
-      }
+  const detectDeviceType =
+    useCallback(async () => {
+      try {
+        if (
+          !navigator.mediaDevices
+            ?.enumerateDevices
+        ) {
+          setFacingMode('user');
 
-      const devices = await navigator.mediaDevices.enumerateDevices();
+          return;
+        }
 
-      const cameras = devices.filter(
-        (device) => device.kind === 'videoinput'
-      );
+        const devices =
+          await navigator.mediaDevices.enumerateDevices();
 
-      const hasBackCamera = cameras.some((camera) => {
-        const label = (camera.label || '').toLowerCase();
-
-        return (
-          label.includes('back') ||
-          label.includes('rear') ||
-          label.includes('environment')
+        const cameras = devices.filter(
+          (device) =>
+            device.kind === 'videoinput'
         );
-      });
 
-      if (hasBackCamera || cameras.length > 1) {
-        setIsLaptop(false);
-        setFacingMode('environment');
-      } else {
-        setIsLaptop(true);
+        const hasBackCamera =
+          cameras.some((camera) => {
+            const label = (
+              camera.label || ''
+            ).toLowerCase();
+
+            return (
+              label.includes('back') ||
+              label.includes('rear') ||
+              label.includes('environment')
+            );
+          });
+
+        if (
+          hasBackCamera ||
+          cameras.length > 1
+        ) {
+          setIsLaptop(false);
+          setFacingMode(
+            'environment'
+          );
+        } else {
+          setIsLaptop(true);
+          setFacingMode('user');
+        }
+      } catch (error) {
+        console.warn(
+          'Could not detect device:',
+          error
+        );
+
         setFacingMode('user');
       }
-    } catch (error) {
-      console.warn('Could not detect device:', error);
-      setFacingMode('user');
-    }
-  }, []);
+    }, []);
 
   /* ============================================================
      CAMERA START
+
+     Requests up to 4K where supported.
+     The browser/device may negotiate a lower resolution.
   ============================================================ */
 
   const startCamera = useCallback(
-    async (requestedFacingMode = null) => {
-      if (isStartingCameraRef.current) {
+    async (
+      requestedFacingMode = null
+    ) => {
+      if (
+        isStartingCameraRef.current
+      ) {
         return;
       }
 
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (
+        !navigator.mediaDevices
+          ?.getUserMedia
+      ) {
         setCameraError(
           'Camera access is not supported by this browser.'
         );
+
         return;
       }
 
       isStartingCameraRef.current = true;
+
       setCameraStarting(true);
+
       setCameraError(null);
 
       try {
         const targetFacingMode =
-          requestedFacingMode || facingMode || 'user';
+          requestedFacingMode ||
+          facingMode ||
+          'user';
 
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => {
-            track.stop();
-          });
+          streamRef.current
+            .getTracks()
+            .forEach((track) => {
+              track.stop();
+            });
 
           streamRef.current = null;
         }
@@ -385,67 +666,115 @@ function GuestCamera() {
             facingMode: {
               ideal: targetFacingMode,
             },
+
             width: {
-              ideal: 1280,
+              ideal: 3840,
+              min: 720,
             },
+
             height: {
-              ideal: 1920,
+              ideal: 2160,
+              min: 720,
+            },
+
+            frameRate: {
+              ideal: 30,
+              max: 60,
             },
           },
+
           audio: true,
         };
 
         let stream;
 
         try {
-          stream = await navigator.mediaDevices.getUserMedia(
-            constraints
-          );
+          stream =
+            await navigator.mediaDevices.getUserMedia(
+              constraints
+            );
         } catch (firstError) {
           console.warn(
-            'Primary camera constraints failed:',
+            '4K camera constraints failed, falling back:',
             firstError
           );
 
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
+          stream =
+            await navigator.mediaDevices.getUserMedia(
+              {
+                video: {
+                  facingMode: {
+                    ideal:
+                      targetFacingMode,
+                  },
+
+                  width: {
+                    ideal: 1920,
+                  },
+
+                  height: {
+                    ideal: 1080,
+                  },
+
+                  frameRate: {
+                    ideal: 30,
+                    max: 60,
+                  },
+                },
+
+                audio: true,
+              }
+            );
         }
 
         streamRef.current = stream;
 
         setHasPermission(true);
 
-        const video = videoRef.current;
+        const video =
+          videoRef.current;
 
         if (!video) {
-          throw new Error('Camera preview element is not available.');
+          throw new Error(
+            'Camera preview element is not available.'
+          );
         }
 
         video.srcObject = stream;
+
         video.muted = true;
         video.playsInline = true;
         video.autoplay = true;
 
         if (video.readyState < 1) {
-          await new Promise((resolve) => {
-            const timeout = setTimeout(resolve, 3000);
+          await new Promise(
+            (resolve) => {
+              const timeout =
+                setTimeout(
+                  resolve,
+                  3000
+                );
 
-            const handleMetadata = () => {
-              clearTimeout(timeout);
-              video.removeEventListener(
+              const handleMetadata =
+                () => {
+                  clearTimeout(
+                    timeout
+                  );
+
+                  video.removeEventListener(
+                    'loadedmetadata',
+                    handleMetadata
+                  );
+
+                  resolve();
+                };
+
+              video.addEventListener(
                 'loadedmetadata',
                 handleMetadata
               );
-              resolve();
-            };
-
-            video.addEventListener(
-              'loadedmetadata',
-              handleMetadata
-            );
-          });
+            }
+          );
         }
 
         try {
@@ -457,51 +786,88 @@ function GuestCamera() {
           );
 
           video.muted = true;
-          await video.play().catch(() => {});
+
+          await video
+            .play()
+            .catch(() => {});
+        }
+
+        /* Log the actual negotiated camera quality */
+        console.log(
+          '📸 Camera resolution:',
+          `${video.videoWidth}x${video.videoHeight}`
+        );
+
+        const activeVideoTrack =
+          stream.getVideoTracks()[0];
+
+        if (activeVideoTrack) {
+          console.log(
+            '📸 Camera settings:',
+            activeVideoTrack.getSettings()
+          );
         }
 
         setIsCameraReady(true);
+
         setCameraError(null);
 
         return stream;
       } catch (error) {
-        console.error('Camera error:', error);
+        console.error(
+          'Camera error:',
+          error
+        );
 
         setIsCameraReady(false);
 
         if (
-          error.name === 'NotAllowedError' ||
-          error.name === 'PermissionDeniedError'
+          error.name ===
+            'NotAllowedError' ||
+          error.name ===
+            'PermissionDeniedError'
         ) {
           setHasPermission(false);
+
           setCameraError(
             'Camera access was denied. Allow camera access in your browser settings and try again.'
           );
         } else if (
-          error.name === 'NotFoundError' ||
-          error.name === 'DevicesNotFoundError'
+          error.name ===
+            'NotFoundError' ||
+          error.name ===
+            'DevicesNotFoundError'
         ) {
           setCameraError(
             'No camera was found on this device.'
           );
-        } else if (error.name === 'NotReadableError') {
+        } else if (
+          error.name ===
+          'NotReadableError'
+        ) {
           setCameraError(
             'Your camera is being used by another application.'
           );
-        } else if (error.name === 'OverconstrainedError') {
+        } else if (
+          error.name ===
+          'OverconstrainedError'
+        ) {
           setCameraError(
             'The selected camera mode is not available on this device.'
           );
         } else {
           setCameraError(
-            error.message || 'Unable to start the camera.'
+            error.message ||
+              'Unable to start the camera.'
           );
         }
 
         return null;
       } finally {
         setCameraStarting(false);
-        isStartingCameraRef.current = false;
+
+        isStartingCameraRef.current =
+          false;
       }
     },
     [facingMode]
@@ -517,14 +883,22 @@ function GuestCamera() {
     const initialise = async () => {
       setLoading(true);
 
-      const eventData = await loadEvent();
+      const eventData =
+        await loadEvent();
 
-      if (!mounted || !eventData) {
+      if (
+        !mounted ||
+        !eventData
+      ) {
         setLoading(false);
+
         return;
       }
 
-      await createGuestSession(eventData.id);
+      await createGuestSession(
+        eventData.id
+      );
+
       await detectDeviceType();
 
       setLoading(false);
@@ -541,33 +915,59 @@ function GuestCamera() {
     return () => {
       mounted = false;
 
-      if (mediaRecorderRef.current) {
+      if (
+        recordingAnimationFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          recordingAnimationFrameRef.current
+        );
+
+        recordingAnimationFrameRef.current =
+          null;
+      }
+
+      if (
+        mediaRecorderRef.current
+      ) {
         try {
-          if (mediaRecorderRef.current.state !== 'inactive') {
+          if (
+            mediaRecorderRef.current
+              .state !== 'inactive'
+          ) {
             mediaRecorderRef.current.stop();
           }
         } catch (error) {
           console.warn(error);
         }
 
-        mediaRecorderRef.current = null;
+        mediaRecorderRef.current =
+          null;
       }
 
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
+        streamRef.current
+          .getTracks()
+          .forEach((track) => {
+            track.stop();
+          });
 
         streamRef.current = null;
       }
 
       if (videoRef.current) {
-        videoRef.current.srcObject = null;
+        videoRef.current.srcObject =
+          null;
       }
 
-      if (previewVideoUrlRef.current) {
-        URL.revokeObjectURL(previewVideoUrlRef.current);
-        previewVideoUrlRef.current = null;
+      if (
+        previewVideoUrlRef.current
+      ) {
+        URL.revokeObjectURL(
+          previewVideoUrlRef.current
+        );
+
+        previewVideoUrlRef.current =
+          null;
       }
     };
   }, [
@@ -584,14 +984,18 @@ function GuestCamera() {
   useEffect(() => {
     if (!isRecording) {
       setRecordingTime(0);
+
       return undefined;
     }
 
     const timer = setInterval(() => {
-      setRecordingTime((previous) => previous + 1);
+      setRecordingTime(
+        (previous) => previous + 1
+      );
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () =>
+      clearInterval(timer);
   }, [isRecording]);
 
   /* ============================================================
@@ -599,11 +1003,17 @@ function GuestCamera() {
   ============================================================ */
 
   useEffect(() => {
-    if (!isRecording || !event?.video_max_duration) {
+    if (
+      !isRecording ||
+      !event?.video_max_duration
+    ) {
       return;
     }
 
-    if (recordingTime >= Number(event.video_max_duration)) {
+    if (
+      recordingTime >=
+      Number(event.video_max_duration)
+    ) {
       stopRecording();
     }
   }, [
@@ -612,24 +1022,29 @@ function GuestCamera() {
     event?.video_max_duration,
   ]);
 
-/* ============================================================
-   SWITCH CAMERA
-============================================================ */
+  /* ============================================================
+     SWITCH CAMERA
+  ============================================================ */
 
-const switchCamera = async () => {
-  if (cameraStarting) return;
+  const switchCamera = async () => {
+    if (cameraStarting) return;
 
-  const nextFacingMode =
-    facingMode === 'environment' ? 'user' : 'environment';
+    const nextFacingMode =
+      facingMode === 'environment'
+        ? 'user'
+        : 'environment';
 
-  console.log('🔄 Switching camera to:', nextFacingMode);
+    console.log(
+      '🔄 Switching camera to:',
+      nextFacingMode
+    );
 
-  // Immediately update the UI state
-  setFacingMode(nextFacingMode);
+    setFacingMode(nextFacingMode);
 
-  // Restart with the new facing mode
-  await startCamera(nextFacingMode);
-};
+    await startCamera(
+      nextFacingMode
+    );
+  };
 
   /* ============================================================
      RETRY CAMERA
@@ -637,82 +1052,124 @@ const switchCamera = async () => {
 
   const retryCamera = async () => {
     setCameraError(null);
+
     await detectDeviceType();
+
     await startCamera(facingMode);
   };
 
   /* ============================================================
      CAPTURE PHOTO
+
+     Captures the selected filter at the camera's
+     actual negotiated resolution.
   ============================================================ */
 
   const capturePhoto = () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const stage = cameraStageRef.current;
 
-    if (!video || !canvas || !isCameraReady) {
-      toast.error('Camera is not ready yet.');
+    const canvas = canvasRef.current;
+
+    if (
+      !video ||
+      !canvas ||
+      !isCameraReady
+    ) {
+      toast.error(
+        'Camera is not ready yet.'
+      );
+
       return;
     }
 
-    if (!video.videoWidth || !video.videoHeight) {
-      toast.error('Camera is still preparing. Try again.');
+    if (
+      !video.videoWidth ||
+      !video.videoHeight
+    ) {
+      toast.error(
+        'Camera is still preparing. Try again.'
+      );
+
       return;
     }
 
     try {
-      const sourceWidth = video.videoWidth;
-      const sourceHeight = video.videoHeight;
+      const crop =
+        getCropData();
 
-      const stageWidth = stage?.clientWidth || 900;
-      const stageHeight = stage?.clientHeight || 1200;
-
-      const sourceRatio = sourceWidth / sourceHeight;
-      const targetRatio = stageWidth / stageHeight;
-
-      let cropWidth = sourceWidth;
-      let cropHeight = sourceHeight;
-      let cropX = 0;
-      let cropY = 0;
-
-      if (sourceRatio > targetRatio) {
-        cropWidth = sourceHeight * targetRatio;
-        cropX = (sourceWidth - cropWidth) / 2;
-      } else {
-        cropHeight = sourceWidth / targetRatio;
-        cropY = (sourceHeight - cropHeight) / 2;
+      if (!crop) {
+        throw new Error(
+          'Could not calculate camera crop.'
+        );
       }
 
-      const outputWidth = Math.min(
-        Math.round(cropWidth),
-        1440
+      /*
+        Keep the camera's source resolution.
+        This means a 4K-capable camera can produce
+        a much larger final image than the old 1440px cap.
+      */
+
+      const outputWidth = Math.round(
+        crop.cropWidth
       );
 
-      const outputHeight = Math.round(
-        outputWidth / targetRatio
-      );
+      const outputHeight =
+        Math.round(
+          crop.cropHeight
+        );
 
-      canvas.width = outputWidth;
-      canvas.height = outputHeight;
+      canvas.width =
+        outputWidth;
 
-      const context = canvas.getContext('2d', {
-        alpha: false,
-      });
+      canvas.height =
+        outputHeight;
+
+      const context =
+        canvas.getContext(
+          '2d',
+          {
+            alpha: false,
+            desynchronized: true,
+          }
+        );
 
       if (!context) {
-        throw new Error('Could not create canvas context.');
+        throw new Error(
+          'Could not create canvas context.'
+        );
       }
 
       context.save();
 
-      context.filter = getCurrentFilter();
+      context.imageSmoothingEnabled =
+        true;
+
+      context.imageSmoothingQuality =
+        'high';
+
+      context.filter =
+        getCurrentFilter();
+
+      /*
+        Match the front-camera mirror.
+      */
+      if (
+        facingMode === 'user'
+      ) {
+        context.translate(
+          outputWidth,
+          0
+        );
+
+        context.scale(-1, 1);
+      }
 
       context.drawImage(
         video,
-        cropX,
-        cropY,
-        cropWidth,
-        cropHeight,
+        crop.cropX,
+        crop.cropY,
+        crop.cropWidth,
+        crop.cropHeight,
         0,
         0,
         outputWidth,
@@ -724,28 +1181,46 @@ const switchCamera = async () => {
       canvas.toBlob(
         (blob) => {
           if (!blob) {
-            toast.error('Could not create the photo.');
+            toast.error(
+              'Could not create the photo.'
+            );
+
             return;
           }
 
-          const reader = new FileReader();
+          const reader =
+            new FileReader();
 
           reader.onloadend = () => {
-            setCapturedImage(reader.result);
+            setCapturedImage(
+              reader.result
+            );
+
             setCapturedVideo(null);
-            setCapturedVideoBlob(null);
+
+            setCapturedVideoBlob(
+              null
+            );
+
             setPublishToWall(true);
+
             setShowPreview(true);
           };
 
           reader.readAsDataURL(blob);
         },
         'image/jpeg',
-        0.92
+        0.98
       );
     } catch (error) {
-      console.error('Capture error:', error);
-      toast.error('Failed to capture photo.');
+      console.error(
+        'Capture error:',
+        error
+      );
+
+      toast.error(
+        'Failed to capture photo.'
+      );
     }
   };
 
@@ -753,39 +1228,63 @@ const switchCamera = async () => {
      VIDEO MIME TYPE
   ============================================================ */
 
-  const getSupportedVideoMimeType = () => {
-    if (typeof MediaRecorder === 'undefined') {
-      return '';
-    }
+  const getSupportedVideoMimeType =
+    () => {
+      if (
+        typeof MediaRecorder ===
+        'undefined'
+      ) {
+        return '';
+      }
 
-    const types = [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-      'video/mp4',
-    ];
+      const types = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4',
+      ];
 
-    return (
-      types.find((type) =>
-        MediaRecorder.isTypeSupported(type)
-      ) || ''
-    );
-  };
+      return (
+        types.find((type) =>
+          MediaRecorder.isTypeSupported(
+            type
+          )
+        ) || ''
+      );
+    };
 
   /* ============================================================
      START RECORDING
+
+     IMPORTANT:
+     The raw camera stream is NOT recorded directly anymore.
+
+     Instead:
+     Camera → Canvas → Filter → Canvas Stream → MediaRecorder
+
+     Audio still comes from the original camera stream.
   ============================================================ */
 
   const startRecording = async () => {
-    if (!streamRef.current || !isCameraReady) {
-      toast.error('Camera is not ready.');
+    if (
+      !streamRef.current ||
+      !isCameraReady
+    ) {
+      toast.error(
+        'Camera is not ready.'
+      );
+
       return;
     }
 
-    if (typeof MediaRecorder === 'undefined') {
+    if (
+      typeof MediaRecorder ===
+      'undefined'
+    ) {
       toast.error(
         'Video recording is not supported on this browser.'
       );
+
       return;
     }
 
@@ -793,6 +1292,7 @@ const switchCamera = async () => {
       toast.error(
         `Upload limit reached (${uploadLimit}).`
       );
+
       return;
     }
 
@@ -801,24 +1301,234 @@ const switchCamera = async () => {
     }
 
     try {
-      chunksRef.current = [];
+      const video =
+        videoRef.current;
 
-      const mimeType = getSupportedVideoMimeType();
+      const recordingCanvas =
+        recordingCanvasRef.current;
 
-      const recorderOptions = mimeType
-        ? { mimeType }
-        : undefined;
+      if (
+        !video ||
+        !recordingCanvas
+      ) {
+        throw new Error(
+          'Recording surface is unavailable.'
+        );
+      }
 
-      const recorder = new MediaRecorder(
-        streamRef.current,
-        recorderOptions
+      if (
+        !video.videoWidth ||
+        !video.videoHeight
+      ) {
+        throw new Error(
+          'Camera resolution is not ready.'
+        );
+      }
+
+      const crop =
+        getCropData();
+
+      if (!crop) {
+        throw new Error(
+          'Could not calculate recording crop.'
+        );
+      }
+
+      const outputWidth =
+        Math.round(
+          crop.cropWidth
+        );
+
+      const outputHeight =
+        Math.round(
+          crop.cropHeight
+        );
+
+      /*
+        Use the camera source resolution.
+        If the phone gives us 4K, the recording canvas
+        will be based on that resolution.
+      */
+
+      recordingCanvas.width =
+        outputWidth;
+
+      recordingCanvas.height =
+        outputHeight;
+
+      const context =
+        recordingCanvas.getContext(
+          '2d',
+          {
+            alpha: false,
+            desynchronized: true,
+          }
+        );
+
+      if (!context) {
+        throw new Error(
+          'Could not create recording canvas.'
+        );
+      }
+
+      context.imageSmoothingEnabled =
+        true;
+
+      context.imageSmoothingQuality =
+        'high';
+
+      const canvasStream =
+        recordingCanvas.captureStream(
+          30
+        );
+
+      if (!canvasStream) {
+        throw new Error(
+          'Filtered video recording is not supported by this browser.'
+        );
+      }
+
+      /*
+        Keep the original microphone/audio track.
+      */
+
+      const audioTracks =
+        streamRef.current.getAudioTracks();
+
+      audioTracks.forEach(
+        (track) => {
+          canvasStream.addTrack(track);
+        }
       );
 
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
+      const drawFilteredFrame =
+        () => {
+          if (
+            !mediaRecorderRef.current ||
+            mediaRecorderRef.current
+              .state === 'inactive'
+          ) {
+            return;
+          }
+
+          try {
+            context.save();
+
+            context.clearRect(
+              0,
+              0,
+              outputWidth,
+              outputHeight
+            );
+
+            context.filter =
+              getCurrentFilter();
+
+            if (
+              facingMode === 'user'
+            ) {
+              context.translate(
+                outputWidth,
+                0
+              );
+
+              context.scale(-1, 1);
+            }
+
+            context.drawImage(
+              video,
+              crop.cropX,
+              crop.cropY,
+              crop.cropWidth,
+              crop.cropHeight,
+              0,
+              0,
+              outputWidth,
+              outputHeight
+            );
+
+            context.restore();
+          } catch (drawError) {
+            console.warn(
+              'Filtered video frame error:',
+              drawError
+            );
+          }
+
+          recordingAnimationFrameRef.current =
+            requestAnimationFrame(
+              drawFilteredFrame
+            );
+        };
+
+      /*
+        Draw one frame before starting.
+      */
+
+      context.save();
+
+      context.filter =
+        getCurrentFilter();
+
+      if (
+        facingMode === 'user'
+      ) {
+        context.translate(
+          outputWidth,
+          0
+        );
+
+        context.scale(-1, 1);
+      }
+
+      context.drawImage(
+        video,
+        crop.cropX,
+        crop.cropY,
+        crop.cropWidth,
+        crop.cropHeight,
+        0,
+        0,
+        outputWidth,
+        outputHeight
+      );
+
+      context.restore();
+
+      const mimeType =
+        getSupportedVideoMimeType();
+
+      const recorderOptions =
+        mimeType
+          ? {
+              mimeType,
+              videoBitsPerSecond:
+                18_000_000,
+            }
+          : {
+              videoBitsPerSecond:
+                18_000_000,
+            };
+
+      const recorder =
+        new MediaRecorder(
+          canvasStream,
+          recorderOptions
+        );
+
+      chunksRef.current = [];
+
+      recorder.ondataavailable =
+        (event) => {
+          if (
+            event.data &&
+            event.data.size > 0
+          ) {
+            chunksRef.current.push(
+              event.data
+            );
+          }
+        };
 
       recorder.onerror = (event) => {
         console.error(
@@ -826,39 +1536,82 @@ const switchCamera = async () => {
           event.error
         );
 
-        toast.error('Video recording failed.');
+        if (
+          recordingAnimationFrameRef.current
+        ) {
+          cancelAnimationFrame(
+            recordingAnimationFrameRef.current
+          );
+
+          recordingAnimationFrameRef.current =
+            null;
+        }
 
         setIsRecording(false);
+
+        toast.error(
+          'Video recording failed.'
+        );
       };
 
       recorder.onstop = () => {
         try {
-          const finalMimeType =
-            mimeType || 'video/webm';
+          if (
+            recordingAnimationFrameRef.current
+          ) {
+            cancelAnimationFrame(
+              recordingAnimationFrameRef.current
+            );
 
-          const blob = new Blob(chunksRef.current, {
-            type: finalMimeType,
-          });
-
-          if (!blob.size) {
-            throw new Error('Recorded video is empty.');
+            recordingAnimationFrameRef.current =
+              null;
           }
 
-          const url = URL.createObjectURL(blob);
+          const finalMimeType =
+            mimeType ||
+            'video/webm';
 
-          if (previewVideoUrlRef.current) {
+          const blob = new Blob(
+            chunksRef.current,
+            {
+              type: finalMimeType,
+            }
+          );
+
+          if (!blob.size) {
+            throw new Error(
+              'Recorded video is empty.'
+            );
+          }
+
+          const url =
+            URL.createObjectURL(
+              blob
+            );
+
+          if (
+            previewVideoUrlRef.current
+          ) {
             URL.revokeObjectURL(
               previewVideoUrlRef.current
             );
           }
 
-          previewVideoUrlRef.current = url;
+          previewVideoUrlRef.current =
+            url;
 
           setCapturedVideo(url);
-          setCapturedVideoBlob(blob);
+
+          setCapturedVideoBlob(
+            blob
+          );
+
           setCapturedImage(null);
+
           setPublishToWall(true);
+
           setShowPreview(true);
+
           setIsRecording(false);
         } catch (error) {
           console.error(
@@ -866,31 +1619,72 @@ const switchCamera = async () => {
             error
           );
 
-          toast.error('Could not process your video.');
+          toast.error(
+            'Could not process your video.'
+          );
+
           setIsRecording(false);
         }
 
-        mediaRecorderRef.current = null;
+        /*
+          Stop only the canvas video track.
+          Do NOT stop the actual camera stream.
+        */
+
+        canvasStream
+          .getVideoTracks()
+          .forEach((track) => {
+            track.stop();
+          });
+
+        mediaRecorderRef.current =
+          null;
       };
 
-      mediaRecorderRef.current = recorder;
+      mediaRecorderRef.current =
+        recorder;
+
+      /*
+        Start drawing continuously BEFORE recording.
+      */
+
+      drawFilteredFrame();
 
       recorder.start(500);
 
       setRecordingTime(0);
+
       setIsRecording(true);
 
-      toast.success('Recording started');
+      toast.success(
+        'Recording started'
+      );
     } catch (error) {
       console.error(
         'Error starting recording:',
         error
       );
 
-      mediaRecorderRef.current = null;
+      if (
+        recordingAnimationFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          recordingAnimationFrameRef.current
+        );
+
+        recordingAnimationFrameRef.current =
+          null;
+      }
+
+      mediaRecorderRef.current =
+        null;
+
       setIsRecording(false);
 
-      toast.error('Could not start video recording.');
+      toast.error(
+        error?.message ||
+          'Could not start video recording.'
+      );
     }
   };
 
@@ -899,12 +1693,15 @@ const switchCamera = async () => {
   ============================================================ */
 
   const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
+    const recorder =
+      mediaRecorderRef.current;
 
     if (!recorder) return;
 
     try {
-      if (recorder.state !== 'inactive') {
+      if (
+        recorder.state !== 'inactive'
+      ) {
         recorder.stop();
       }
     } catch (error) {
@@ -922,6 +1719,7 @@ const switchCamera = async () => {
   const handleShutterPress = () => {
     if (mode === 'photo') {
       capturePhoto();
+
       return;
     }
 
@@ -940,35 +1738,43 @@ const switchCamera = async () => {
 
   const retake = () => {
     setShowPreview(false);
+
     setCapturedImage(null);
+
     setCapturedVideo(null);
+
     setCapturedVideoBlob(null);
 
-    if (previewVideoUrlRef.current) {
+    if (
+      previewVideoUrlRef.current
+    ) {
       URL.revokeObjectURL(
         previewVideoUrlRef.current
       );
 
-      previewVideoUrlRef.current = null;
+      previewVideoUrlRef.current =
+        null;
     }
 
     setTimeout(() => {
-      videoRef.current?.play().catch(() => {});
+      videoRef.current?.play?.()
+        .catch(() => {});
     }, 50);
   };
 
   /* ============================================================
-     SAVE TO PHONE (NO UPLOAD)
+     SAVE TO PHONE
   ============================================================ */
-  /*
-   * Downloads the captured media straight to the guest's
-   * device. Does NOT touch Supabase, does NOT count toward
-   * the upload limit.
-   */
 
   const saveToPhone = async () => {
-    if (!capturedImage && !capturedVideoBlob) {
-      toast.error('There is nothing to save.');
+    if (
+      !capturedImage &&
+      !capturedVideoBlob
+    ) {
+      toast.error(
+        'There is nothing to save.'
+      );
+
       return;
     }
 
@@ -976,45 +1782,76 @@ const switchCamera = async () => {
 
     try {
       let blob;
+
       let filename;
 
       if (capturedImage) {
-        // Convert base64 → blob
-        const response = await fetch(capturedImage);
-        blob = await response.blob();
+        const response =
+          await fetch(
+            capturedImage
+          );
+
+        blob =
+          await response.blob();
+
         filename = `snapguest-${Date.now()}.jpg`;
       } else {
-        blob = capturedVideoBlob;
+        blob =
+          capturedVideoBlob;
+
         filename = `snapguest-${Date.now()}.${
-          capturedVideoBlob?.type?.includes('mp4')
+          capturedVideoBlob?.type?.includes(
+            'mp4'
+          )
             ? 'mp4'
             : 'webm'
         }`;
       }
 
-      const ok = await saveFileToDevice(blob, filename);
+      const ok =
+        await saveFileToDevice(
+          blob,
+          filename
+        );
 
       if (ok) {
-        toast.success('Saved to your device 📥');
+        toast.success(
+          'Saved to your device 📥'
+        );
 
-        // Clean up preview, return to camera
         setShowPreview(false);
+
         setCapturedImage(null);
+
         setCapturedVideo(null);
+
         setCapturedVideoBlob(null);
 
-        if (previewVideoUrlRef.current) {
-          URL.revokeObjectURL(previewVideoUrlRef.current);
-          previewVideoUrlRef.current = null;
+        if (
+          previewVideoUrlRef.current
+        ) {
+          URL.revokeObjectURL(
+            previewVideoUrlRef.current
+          );
+
+          previewVideoUrlRef.current =
+            null;
         }
 
         setTimeout(() => {
-          videoRef.current?.play().catch(() => {});
+          videoRef.current?.play?.()
+            .catch(() => {});
         }, 200);
       }
     } catch (error) {
-      console.error('Save-to-phone error:', error);
-      toast.error('Could not save to your device.');
+      console.error(
+        'Save-to-phone error:',
+        error
+      );
+
+      toast.error(
+        'Could not save to your device.'
+      );
     } finally {
       setUploading(false);
     }
@@ -1025,16 +1862,17 @@ const switchCamera = async () => {
   ============================================================ */
 
   const uploadMedia = async () => {
-    /* ---------- PATH A: Save to Phone (no upload) ---------- */
     if (!publishToWall) {
       await saveToPhone();
+
       return;
     }
 
-    /* ---------- PATH B: Upload to Live Wall ---------- */
-
     if (!event) {
-      toast.error('Event is not loaded.');
+      toast.error(
+        'Event is not loaded.'
+      );
+
       return;
     }
 
@@ -1042,6 +1880,7 @@ const switchCamera = async () => {
       toast.error(
         'Your guest session is not ready. Please refresh and try again.'
       );
+
       return;
     }
 
@@ -1049,11 +1888,18 @@ const switchCamera = async () => {
       toast.error(
         `Upload limit reached (${uploadLimit}).`
       );
+
       return;
     }
 
-    if (!capturedImage && !capturedVideoBlob) {
-      toast.error('There is no captured media to upload.');
+    if (
+      !capturedImage &&
+      !capturedVideoBlob
+    ) {
+      toast.error(
+        'There is no captured media to upload.'
+      );
+
       return;
     }
 
@@ -1063,14 +1909,20 @@ const switchCamera = async () => {
 
     try {
       let fileType;
+
       let fileExtension;
+
       let blob;
 
       if (capturedImage) {
         fileType = 'photo';
+
         fileExtension = 'jpg';
 
-        const response = await fetch(capturedImage);
+        const response =
+          await fetch(
+            capturedImage
+          );
 
         if (!response.ok) {
           throw new Error(
@@ -1078,17 +1930,22 @@ const switchCamera = async () => {
           );
         }
 
-        blob = await response.blob();
-      } else if (capturedVideoBlob) {
+        blob =
+          await response.blob();
+      } else if (
+        capturedVideoBlob
+      ) {
         fileType = 'video';
 
-        fileExtension = capturedVideoBlob.type.includes(
-          'mp4'
-        )
-          ? 'mp4'
-          : 'webm';
+        fileExtension =
+          capturedVideoBlob.type.includes(
+            'mp4'
+          )
+            ? 'mp4'
+            : 'webm';
 
-        blob = capturedVideoBlob;
+        blob =
+          capturedVideoBlob;
       }
 
       if (!blob || !blob.size) {
@@ -1120,9 +1977,13 @@ const switchCamera = async () => {
             uploadedPath,
             file,
             {
-              cacheControl: '3600',
+              cacheControl:
+                '3600',
+
               upsert: false,
-              contentType: file.type,
+
+              contentType:
+                file.type,
             }
           );
 
@@ -1130,10 +1991,13 @@ const switchCamera = async () => {
         throw storageError;
       }
 
-      const { data: publicUrlData } =
-        supabase.storage
-          .from('event-media')
-          .getPublicUrl(uploadedPath);
+      const {
+        data: publicUrlData,
+      } = supabase.storage
+        .from('event-media')
+        .getPublicUrl(
+          uploadedPath
+        );
 
       const publicUrl =
         publicUrlData?.publicUrl;
@@ -1144,36 +2008,50 @@ const switchCamera = async () => {
         );
       }
 
-      const { data: mediaRow, error: mediaError } =
-        await supabase
-          .from('media')
-          .insert([
-            {
-              event_id: event.id,
-              type: fileType,
-              file_url: publicUrl,
-              guest_session_id: guestSession.id,
-              approved: true,
-            },
-          ])
-          .select()
-          .single();
+      const {
+        data: mediaRow,
+        error: mediaError,
+      } = await supabase
+        .from('media')
+        .insert([
+          {
+            event_id: event.id,
+
+            type: fileType,
+
+            file_url: publicUrl,
+
+            guest_session_id:
+              guestSession.id,
+
+            approved: true,
+          },
+        ])
+        .select()
+        .single();
 
       if (mediaError) {
         throw mediaError;
       }
 
-      const newCount = uploadCount + 1;
+      const newCount =
+        uploadCount + 1;
 
-      const { error: sessionError } =
-        await supabase
-          .from('guest_sessions')
-          .update({
-            upload_count: newCount,
-            last_active_at:
-              new Date().toISOString(),
-          })
-          .eq('id', guestSession.id);
+      const {
+        error: sessionError,
+      } = await supabase
+        .from('guest_sessions')
+        .update({
+          upload_count:
+            newCount,
+
+          last_active_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          'id',
+          guestSession.id
+        );
 
       if (sessionError) {
         console.warn(
@@ -1182,15 +2060,19 @@ const switchCamera = async () => {
         );
       }
 
-      setUploadCount(newCount);
+      setUploadCount(
+        newCount
+      );
 
-      setGuestSession((previous) =>
-        previous
-          ? {
-              ...previous,
-              upload_count: newCount,
-            }
-          : previous
+      setGuestSession(
+        (previous) =>
+          previous
+            ? {
+                ...previous,
+                upload_count:
+                  newCount,
+              }
+            : previous
       );
 
       toast.success(
@@ -1202,19 +2084,28 @@ const switchCamera = async () => {
       );
 
       setShowPreview(false);
+
       setCapturedImage(null);
+
       setCapturedVideo(null);
+
       setCapturedVideoBlob(null);
 
-      if (previewVideoUrlRef.current) {
+      if (
+        previewVideoUrlRef.current
+      ) {
         URL.revokeObjectURL(
           previewVideoUrlRef.current
         );
 
-        previewVideoUrlRef.current = null;
+        previewVideoUrlRef.current =
+          null;
       }
 
-      console.log('Uploaded media:', mediaRow);
+      console.log(
+        'Uploaded media:',
+        mediaRow
+      );
     } catch (error) {
       console.error(
         'Upload error:',
@@ -1225,8 +2116,12 @@ const switchCamera = async () => {
         try {
           await supabase.storage
             .from('event-media')
-            .remove([uploadedPath]);
-        } catch (cleanupError) {
+            .remove([
+              uploadedPath,
+            ]);
+        } catch (
+          cleanupError
+        ) {
           console.warn(
             'Could not clean up uploaded file:',
             cleanupError
@@ -1249,26 +2144,44 @@ const switchCamera = async () => {
 
   const loadGallery = async () => {
     if (!event) {
-      toast.error('Event is not loaded.');
+      toast.error(
+        'Event is not loaded.'
+      );
+
       return;
     }
 
     setGalleryLoading(true);
 
     try {
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from('media')
         .select('*')
-        .eq('event_id', event.id)
-        .eq('approved', true)
-        .order('uploaded_at', {
-          ascending: false,
-        })
+        .eq(
+          'event_id',
+          event.id
+        )
+        .eq(
+          'approved',
+          true
+        )
+        .order(
+          'uploaded_at',
+          {
+            ascending: false,
+          }
+        )
         .limit(50);
 
       if (error) throw error;
 
-      setGalleryMedia(data || []);
+      setGalleryMedia(
+        data || []
+      );
+
       setShowGallery(true);
     } catch (error) {
       console.error(
@@ -1289,22 +2202,28 @@ const switchCamera = async () => {
   ============================================================ */
 
   const shareEvent = async () => {
-    const url = window.location.href;
+    const url =
+      window.location.href;
 
     try {
       if (navigator.share) {
         await navigator.share({
           title:
-            event?.name || 'Event',
+            event?.name ||
+            'Event',
+
           text:
             'Capture and share your moments!',
+
           url,
         });
 
         return;
       }
 
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(
+        url
+      );
 
       toast.success(
         'Event link copied!'
@@ -1318,7 +2237,7 @@ const switchCamera = async () => {
   };
 
   /* ============================================================
-     RENDER: LOADING
+     LOADING
   ============================================================ */
 
   if (loading) {
@@ -1326,7 +2245,10 @@ const switchCamera = async () => {
       <div className="guest-camera-loading">
         <div className="guest-camera-loader">
           <div className="guest-camera-loader-ring" />
-          <span>Preparing camera</span>
+
+          <span>
+            Preparing camera
+          </span>
         </div>
       </div>
     );
@@ -1340,11 +2262,14 @@ const switchCamera = async () => {
             !
           </div>
 
-          <h2>Event not found</h2>
+          <h2>
+            Event not found
+          </h2>
 
           <p>
-            This event may have ended or the
-            link may be incorrect.
+            This event may have ended
+            or the link may be
+            incorrect.
           </p>
 
           <Link
@@ -1371,13 +2296,15 @@ const switchCamera = async () => {
           </span>
 
           <h1>
-            {event.status === 'closed'
+            {event.status ===
+            'closed'
               ? 'Event Closed'
               : 'Coming Soon'}
           </h1>
 
           <p>
-            {event.status === 'closed'
+            {event.status ===
+            'closed'
               ? 'Guest uploads are no longer available for this event.'
               : 'This event is not accepting guest uploads yet.'}
           </p>
@@ -1411,18 +2338,16 @@ const switchCamera = async () => {
           '#ffffff',
       }}
     >
-      {/* ==========================================
-          TOP BAR
-      =========================================== */}
+      {/* TOP BAR */}
 
       <header className="guest-camera-topbar">
-      <Link
-  to={`/e/${eventSlug}/gallery`}
-  className="guest-camera-icon-button"
-  aria-label="View gallery"
->
-  <FiArrowLeft size={20} />
-</Link>
+        <Link
+          to={`/e/${eventSlug}/gallery`}
+          className="guest-camera-icon-button"
+          aria-label="View gallery"
+        >
+          <FiArrowLeft size={20} />
+        </Link>
 
         <div className="guest-camera-event-info">
           <span className="guest-camera-event-label">
@@ -1444,9 +2369,7 @@ const switchCamera = async () => {
         </button>
       </header>
 
-      {/* ==========================================
-          CAMERA AREA
-      =========================================== */}
+      {/* CAMERA AREA */}
 
       <main className="guest-camera-main">
         <div
@@ -1472,19 +2395,28 @@ const switchCamera = async () => {
             onLoadedMetadata={() => {
               if (
                 videoRef.current &&
-                videoRef.current.srcObject
+                videoRef.current
+                  .srcObject
               ) {
                 videoRef.current
                   .play()
                   .then(() => {
-                    setIsCameraReady(true);
+                    setIsCameraReady(
+                      true
+                    );
                   })
                   .catch(() => {});
               }
             }}
+            style={{
+              filter:
+                getCurrentFilter(),
+            }}
           />
 
           <div className="guest-camera-vignette" />
+
+          {/* TOP CAMERA OVERLAY */}
 
           <div className="guest-camera-overlay-top">
             <div className="guest-camera-status-pill">
@@ -1504,9 +2436,11 @@ const switchCamera = async () => {
             {isRecording && (
               <div className="guest-camera-recording-time">
                 <FiClock size={14} />
+
                 {formatTime(
                   recordingTime
                 )}
+
                 {event.video_max_duration && (
                   <span>
                     /
@@ -1521,21 +2455,31 @@ const switchCamera = async () => {
             )}
           </div>
 
+          {/* CAMERA ERROR */}
+
           {cameraError && (
             <div className="guest-camera-error-overlay">
               <div className="guest-camera-error-icon">
                 !
               </div>
 
-              <h3>Camera unavailable</h3>
+              <h3>
+                Camera unavailable
+              </h3>
 
-              <p>{cameraError}</p>
+              <p>
+                {cameraError}
+              </p>
 
               <button
                 type="button"
                 className="guest-camera-retry-button"
-                onClick={retryCamera}
-                disabled={cameraStarting}
+                onClick={
+                  retryCamera
+                }
+                disabled={
+                  cameraStarting
+                }
               >
                 <FiRefreshCw
                   className={
@@ -1544,6 +2488,7 @@ const switchCamera = async () => {
                       : ''
                   }
                 />
+
                 {cameraStarting
                   ? 'Trying...'
                   : 'Try Camera Again'}
@@ -1561,11 +2506,13 @@ const switchCamera = async () => {
                 </strong>
 
                 <span>
-                  Allow camera access when
-                  prompted
+                  Allow camera access
+                  when prompted
                 </span>
               </div>
             )}
+
+          {/* FILTER PANEL */}
 
           {isCameraReady &&
             !isRecording &&
@@ -1576,10 +2523,14 @@ const switchCamera = async () => {
                 </div>
 
                 <div className="guest-camera-filter-list">
-                  {Object.keys(FILTERS).map(
+                  {Object.keys(
+                    FILTERS
+                  ).map(
                     (filterName) => (
                       <button
-                        key={filterName}
+                        key={
+                          filterName
+                        }
                         type="button"
                         className={`guest-camera-filter ${
                           cameraMode ===
@@ -1593,17 +2544,20 @@ const switchCamera = async () => {
                           )
                         }
                       >
-                        <span
-                          className="guest-camera-filter-preview"
-                          style={{
-                            filter:
-                              FILTERS[
-                                filterName
-                              ],
-                          }}
-                        >
-                          A
-                        </span>
+                        <FilterPreview
+                          stream={
+                            streamRef.current
+                          }
+                          filter={
+                            FILTERS[
+                              filterName
+                            ]
+                          }
+                          isFrontCamera={
+                            facingMode ===
+                            'user'
+                          }
+                        />
 
                         <span>
                           {
@@ -1618,6 +2572,8 @@ const switchCamera = async () => {
                 </div>
               </div>
             )}
+
+          {/* BOTTOM CAMERA CONTROLS */}
 
           {isCameraReady && (
             <div className="guest-camera-overlay-bottom">
@@ -1634,16 +2590,20 @@ const switchCamera = async () => {
                       !previous
                   )
                 }
-                disabled={isRecording}
+                disabled={
+                  isRecording
+                }
               >
                 <span className="guest-camera-side-button-icon">
                   ✨
                 </span>
 
                 <span>
-                  {FILTER_LABELS[
-                    cameraMode
-                  ]}
+                  {
+                    FILTER_LABELS[
+                      cameraMode
+                    ]
+                  }
                 </span>
               </button>
 
@@ -1680,13 +2640,17 @@ const switchCamera = async () => {
               <button
                 type="button"
                 className="guest-camera-side-button"
-                onClick={switchCamera}
+                onClick={
+                  switchCamera
+                }
                 disabled={
                   isRecording ||
                   cameraStarting
                 }
               >
-                <FiRotateCw size={20} />
+                <FiRotateCw
+                  size={20}
+                />
 
                 <span>
                   Flip
@@ -1695,6 +2659,8 @@ const switchCamera = async () => {
             </div>
           )}
         </div>
+
+        {/* MODE SWITCHER */}
 
         <div className="guest-camera-mode-switcher">
           <button
@@ -1708,7 +2674,9 @@ const switchCamera = async () => {
               !isRecording &&
               setMode('photo')
             }
-            disabled={isRecording}
+            disabled={
+              isRecording
+            }
           >
             <FiCamera size={16} />
             Photo
@@ -1725,19 +2693,27 @@ const switchCamera = async () => {
               !isRecording &&
               setMode('video')
             }
-            disabled={isRecording}
+            disabled={
+              isRecording
+            }
           >
             <FiVideo size={16} />
             Video
           </button>
         </div>
 
+        {/* FOOTER */}
+
         <div className="guest-camera-footer">
           <button
             type="button"
             className="guest-camera-footer-action"
-            onClick={loadGallery}
-            disabled={galleryLoading}
+            onClick={
+              loadGallery
+            }
+            disabled={
+              galleryLoading
+            }
           >
             <span className="guest-camera-footer-icon">
               {galleryLoading ? (
@@ -1748,7 +2724,10 @@ const switchCamera = async () => {
             </span>
 
             <span>
-              <strong>Live Wall</strong>
+              <strong>
+                Live Wall
+              </strong>
+
               <small>
                 See the moments
               </small>
@@ -1759,8 +2738,10 @@ const switchCamera = async () => {
             <span>
               {uploadCount}
             </span>
+
             <small>
-              / {uploadLimit} uploads
+              / {uploadLimit}{' '}
+              uploads
             </small>
           </div>
 
@@ -1773,13 +2754,18 @@ const switchCamera = async () => {
             </span>
 
             <span>
-              <strong>Wall</strong>
+              <strong>
+                Wall
+              </strong>
+
               <small>
                 View live
               </small>
             </span>
           </Link>
         </div>
+
+        {/* INFO */}
 
         <button
           type="button"
@@ -1801,37 +2787,52 @@ const switchCamera = async () => {
         {showInfo && (
           <div className="guest-camera-info-panel">
             <div>
-              <strong>📸 Photos</strong>
+              <strong>
+                📸 Photos
+              </strong>
+
               <span>
-                Tap the shutter, review your
-                photo, then choose whether
+                Tap the shutter,
+                review your photo,
+                then choose whether
                 to post it.
               </span>
             </div>
 
             <div>
-              <strong>🎥 Videos</strong>
+              <strong>
+                🎥 Videos
+              </strong>
+
               <span>
-                Tap once to record and again
-                to stop. Your video will
-                appear in preview first.
+                Tap once to record
+                and again to stop.
+                Your filtered video
+                will appear in preview
+                first.
               </span>
             </div>
 
             <div>
-              <strong>✨ Filters</strong>
+              <strong>
+                ✨ Filters
+              </strong>
+
               <span>
-                Try the different looks before
-                capturing your moment.
+                The filter is applied
+                to the live camera,
+                your captured photo,
+                and your recorded
+                video.
               </span>
             </div>
           </div>
         )}
       </main>
 
-      {/* ==========================================
+      {/* ========================================================
           PREVIEW
-      =========================================== */}
+      ======================================================== */}
 
       {showPreview && (
         <div className="guest-camera-preview-screen">
@@ -1884,10 +2885,9 @@ const switchCamera = async () => {
               ) : null}
 
               <div className="guest-camera-preview-filter-badge">
-                {capturedImage &&
-                  FILTER_LABELS[
-                    cameraMode
-                  ]}
+                {FILTER_LABELS[
+                  cameraMode
+                ]}
               </div>
             </div>
 
@@ -1897,12 +2897,13 @@ const switchCamera = async () => {
               <div className="guest-camera-publish-heading">
                 <div>
                   <strong>
-                    What would you like to do?
+                    What would you like
+                    to do?
                   </strong>
 
                   <span>
-                    Choose what happens to this
-                    capture.
+                    Choose what happens to
+                    this capture.
                   </span>
                 </div>
 
@@ -1922,7 +2923,9 @@ const switchCamera = async () => {
                       : ''
                   }
                   onClick={() =>
-                    setPublishToWall(true)
+                    setPublishToWall(
+                      true
+                    )
                   }
                   disabled={uploading}
                 >
@@ -1936,8 +2939,8 @@ const switchCamera = async () => {
                     </strong>
 
                     <span>
-                      Everyone at the event
-                      will see it.
+                      Everyone at the
+                      event will see it.
                     </span>
                   </div>
 
@@ -1956,7 +2959,9 @@ const switchCamera = async () => {
                       : ''
                   }
                   onClick={() =>
-                    setPublishToWall(false)
+                    setPublishToWall(
+                      false
+                    )
                   }
                   disabled={uploading}
                 >
@@ -1970,8 +2975,8 @@ const switchCamera = async () => {
                     </strong>
 
                     <span>
-                      Keep it for yourself — no
-                      upload.
+                      Keep it for yourself
+                      — no upload.
                     </span>
                   </div>
 
@@ -2000,12 +3005,15 @@ const switchCamera = async () => {
               <button
                 type="button"
                 className="guest-camera-upload-button"
-                onClick={uploadMedia}
+                onClick={
+                  uploadMedia
+                }
                 disabled={uploading}
               >
                 {uploading ? (
                   <>
                     <span className="upload-spinner" />
+
                     {publishToWall
                       ? 'Uploading...'
                       : 'Saving...'}
@@ -2031,9 +3039,9 @@ const switchCamera = async () => {
         </div>
       )}
 
-      {/* ==========================================
+      {/* ========================================================
           GALLERY DRAWER
-      =========================================== */}
+      ======================================================== */}
 
       {showGallery && (
         <div className="guest-camera-gallery-overlay">
@@ -2050,15 +3058,17 @@ const switchCamera = async () => {
                 </h2>
 
                 <p>
-                  Latest moments from the
-                  event
+                  Latest moments from
+                  the event
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setShowGallery(false)
+                  setShowGallery(
+                    false
+                  )
                 }
                 className="guest-camera-gallery-close"
               >
@@ -2066,7 +3076,8 @@ const switchCamera = async () => {
               </button>
             </div>
 
-            {galleryMedia.length === 0 ? (
+            {galleryMedia.length ===
+            0 ? (
               <div className="guest-camera-gallery-empty">
                 <div>📸</div>
 
@@ -2075,8 +3086,8 @@ const switchCamera = async () => {
                 </h3>
 
                 <p>
-                  Be the first guest to
-                  capture one.
+                  Be the first guest
+                  to capture one.
                 </p>
               </div>
             ) : (
@@ -2132,11 +3143,18 @@ const switchCamera = async () => {
         </div>
       )}
 
-      {/* Hidden canvas used for photo capture */}
+      {/* ========================================================
+          HIDDEN CANVASES
+      ======================================================== */}
 
       <canvas
         ref={canvasRef}
         className="guest-camera-hidden-canvas"
+      />
+
+      <canvas
+        ref={recordingCanvasRef}
+        className="guest-camera-recording-canvas"
       />
     </div>
   );
