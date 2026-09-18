@@ -612,20 +612,24 @@ function GuestCamera() {
     event?.video_max_duration,
   ]);
 
-  /* ============================================================
-     SWITCH CAMERA
-  ============================================================ */
+/* ============================================================
+   SWITCH CAMERA
+============================================================ */
 
-  const switchCamera = async () => {
-    if (cameraStarting) return;
+const switchCamera = async () => {
+  if (cameraStarting) return;
 
-    const nextFacingMode =
-      facingMode === 'environment' ? 'user' : 'environment';
+  const nextFacingMode =
+    facingMode === 'environment' ? 'user' : 'environment';
 
-    setFacingMode(nextFacingMode);
+  console.log('🔄 Switching camera to:', nextFacingMode);
 
-    await startCamera(nextFacingMode);
-  };
+  // Immediately update the UI state
+  setFacingMode(nextFacingMode);
+
+  // Restart with the new facing mode
+  await startCamera(nextFacingMode);
+};
 
   /* ============================================================
      RETRY CAMERA
