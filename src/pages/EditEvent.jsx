@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +19,9 @@ import {
   FiTv,
   FiCamera,
   FiExternalLink,
-  FiShare2
+  FiShare2,
+  FiUpload,
+  FiX
 } from 'react-icons/fi';
 
 import { FaQrcode } from 'react-icons/fa';
@@ -32,41 +34,13 @@ import './EditEvent.css';
    ============================================================ */
 
 const CAMERA_MODES = [
-  {
-    key: 'original',
-    label: 'Original',
-    description: 'Natural'
-  },
-  {
-    key: 'disposable',
-    label: 'Disposable',
-    description: 'Fun & flash'
-  },
-  {
-    key: 'film',
-    label: 'Film',
-    description: 'Soft & timeless'
-  },
-  {
-    key: 'retro',
-    label: 'Retro',
-    description: 'Vintage'
-  },
-  {
-    key: 'warm',
-    label: 'Warm',
-    description: 'Golden'
-  },
-  {
-    key: 'cool',
-    label: 'Cool',
-    description: 'Clean'
-  },
-  {
-    key: 'noir',
-    label: 'Noir',
-    description: 'Classic'
-  }
+  { key: 'original', label: 'Original', description: 'Natural' },
+  { key: 'disposable', label: 'Disposable', description: 'Fun & flash' },
+  { key: 'film', label: 'Film', description: 'Soft & timeless' },
+  { key: 'retro', label: 'Retro', description: 'Vintage' },
+  { key: 'warm', label: 'Warm', description: 'Golden' },
+  { key: 'cool', label: 'Cool', description: 'Clean' },
+  { key: 'noir', label: 'Noir', description: 'Classic' }
 ];
 
 function EditEvent() {
@@ -74,9 +48,12 @@ function EditEvent() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const coverInputRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const [event, setEvent] = useState(null);
 
@@ -89,6 +66,18 @@ function EditEvent() {
 
   const [showQR, setShowQR] = useState(false);
 
+  /* ---------------------------------------------
+     COVER IMAGE STATE
+  --------------------------------------------- */
+
+  const [coverPreview, setCoverPreview] = useState(null); // data URL
+  const [coverFile, setCoverFile] = useState(null);       // raw File
+  const [coverRemoved, setCoverRemoved] = useState(false); // user clicked remove
+
+  /* ---------------------------------------------
+     FORM DATA
+  --------------------------------------------- */
+
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -97,13 +86,9 @@ function EditEvent() {
     guest_upload_limit: 10,
     video_max_duration: 15,
     status: 'active',
-    camera_modes: [
-      'original',
-      'disposable',
-      'film',
-      'retro'
-    ],
-    primary_color: '#8b5cf6'
+    camera_modes: ['original', 'disposable', 'film', 'retro'],
+    primary_color: '#8b5cf6',
+    cover_image: null
   });
 
   /* ============================================================
@@ -120,13 +105,8 @@ function EditEvent() {
         .eq('id', eventId)
         .single();
 
-      if (eventError) {
-        throw eventError;
-      }
-
-      if (!eventData) {
-        throw new Error('Event not found');
-      }
+      if (eventError) throw eventError;
+      if (!eventData) throw new Error('Event not found');
 
       setEvent(eventData);
 
@@ -141,17 +121,29 @@ function EditEvent() {
         camera_modes: Array.isArray(eventData.camera_modes)
           ? eventData.camera_modes
           : ['original', 'disposable', 'film', 'retro'],
-        primary_color: eventData.primary_color || '#8b5cf6'
+        primary_color: eventData.primary_color || '#8b5cf6',
+        cover_image: eventData.cover_image || null
       });
 
+      // Set cover preview from existing cover
+      if (eventData.cover_image) {
+        setCoverPreview(eventData.cover_image);
+      } else {
+        setCoverPreview(null);
+      }
+
+      setCoverFile(null);
+      setCoverRemoved(false);
+
+      /* Media stats */
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .select('type')
         .eq('event_id', eventId);
 
       if (!mediaError) {
-        const photos = mediaData.filter(item => item.type === 'photo').length;
-        const videos = mediaData.filter(item => item.type === 'video').length;
+        const photos = mediaData.filter((item) => item.type === 'photo').length;
+        const videos = mediaData.filter((item) => item.type === 'video').length;
 
         setMediaStats({
           photos,
@@ -166,7 +158,7 @@ function EditEvent() {
         .select('id', { count: 'exact', head: true })
         .eq('event_id', eventId);
 
-      setMediaStats(previous => ({
+      setMediaStats((previous) => ({
         ...previous,
         guests: guestCount || 0
       }));
@@ -184,20 +176,56 @@ function EditEvent() {
   }, [eventId]);
 
   /* ============================================================
+     COVER IMAGE HANDLERS
+  ============================================================ */
+
+  const handleCoverSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB.');
+      return;
+    }
+
+    setCoverFile(file);
+    setCoverRemoved(false);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => setCoverPreview(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverRemove = () => {
+    setCoverFile(null);
+    setCoverPreview(null);
+    setCoverRemoved(true);
+
+    if (coverInputRef.current) {
+      coverInputRef.current.value = '';
+    }
+  };
+
+  /* ============================================================
      FORM
      ============================================================ */
 
-  const handleChange = event => {
-    const { name, value, type } = event.target;
+  const handleChange = (e) => {
+    const { name, value, type } = e.target;
 
-    setFormData(previous => ({
+    setFormData((previous) => ({
       ...previous,
       [name]: type === 'number' ? Number(value) : value
     }));
   };
 
-  const toggleCameraMode = mode => {
-    setFormData(previous => {
+  const toggleCameraMode = (mode) => {
+    setFormData((previous) => {
       const exists = previous.camera_modes.includes(mode);
 
       if (exists && previous.camera_modes.length === 1) {
@@ -208,7 +236,7 @@ function EditEvent() {
       return {
         ...previous,
         camera_modes: exists
-          ? previous.camera_modes.filter(item => item !== mode)
+          ? previous.camera_modes.filter((item) => item !== mode)
           : [...previous.camera_modes, mode]
       };
     });
@@ -216,9 +244,9 @@ function EditEvent() {
 
   /* ============================================================
      SAVE
-     ============================================================ */
+  ============================================================ */
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -234,6 +262,46 @@ function EditEvent() {
     setSaving(true);
 
     try {
+      /* ---------------------------------------------
+         1. UPLOAD NEW COVER IF PROVIDED
+      --------------------------------------------- */
+
+      let newCoverUrl = formData.cover_image;
+
+      if (coverFile) {
+        setUploadingCover(true);
+
+        const ext = coverFile.name.split('.').pop() || 'jpg';
+        const fileName = `covers/${eventId}-${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('event-media')
+          .upload(fileName, coverFile, {
+            cacheControl: '31536000',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('Cover upload error:', uploadError);
+          toast.error('Cover upload failed. Continuing without changes.');
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('event-media')
+            .getPublicUrl(fileName);
+
+          newCoverUrl = urlData?.publicUrl || null;
+        }
+
+        setUploadingCover(false);
+      } else if (coverRemoved) {
+        // User removed the cover
+        newCoverUrl = null;
+      }
+
+      /* ---------------------------------------------
+         2. UPDATE EVENT
+      --------------------------------------------- */
+
       const { error } = await supabase
         .from('events')
         .update({
@@ -251,13 +319,12 @@ function EditEvent() {
           status: formData.status,
           camera_modes: formData.camera_modes,
           primary_color: formData.primary_color,
+          cover_image: newCoverUrl,
           updated_at: new Date().toISOString()
         })
         .eq('id', eventId);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast.success('Event updated successfully ✨');
 
@@ -272,16 +339,14 @@ function EditEvent() {
 
   /* ============================================================
      DELETE
-     ============================================================ */
+  ============================================================ */
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
       `Delete "${event?.name}" permanently?\n\nThis will remove the event and its media records.`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setDeleting(true);
 
@@ -293,16 +358,12 @@ function EditEvent() {
 
       if (mediaData?.length) {
         const storagePaths = mediaData
-          .map(item => {
+          .map((item) => {
             try {
               const url = new URL(item.file_url);
               const marker = '/event-media/';
               const index = url.pathname.indexOf(marker);
-
-              if (index === -1) {
-                return null;
-              }
-
+              if (index === -1) return null;
               return decodeURIComponent(
                 url.pathname.slice(index + marker.length)
               );
@@ -325,9 +386,7 @@ function EditEvent() {
         .delete()
         .eq('id', eventId);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast.success('Event deleted.');
       navigate('/dashboard');
@@ -340,15 +399,11 @@ function EditEvent() {
   };
 
   /* ============================================================
-     EVENT URLS
-     ============================================================ */
+     URLS
+  ============================================================ */
 
   const eventUrl = `${window.location.origin}/e/${formData.slug}`;
   const galleryUrl = `${window.location.origin}/e/${formData.slug}/gallery`;
-
-  /* ============================================================
-     COPY EVENT URL
-     ============================================================ */
 
   const copyEventUrl = async () => {
     try {
@@ -358,10 +413,6 @@ function EditEvent() {
       toast.error('Could not copy the link.');
     }
   };
-
-  /* ============================================================
-     SHARE GALLERY
-     ============================================================ */
 
   const shareGallery = async () => {
     try {
@@ -378,8 +429,6 @@ function EditEvent() {
       toast.success('Gallery link copied!');
     } catch (error) {
       console.warn('Share cancelled:', error);
-
-      // Fallback: try clipboard if share was cancelled
       try {
         await navigator.clipboard.writeText(galleryUrl);
         toast.success('Gallery link copied!');
@@ -391,11 +440,10 @@ function EditEvent() {
 
   /* ============================================================
      QR DOWNLOAD
-     ============================================================ */
+  ============================================================ */
 
   const downloadQR = () => {
     const svg = document.getElementById('event-qr-code');
-
     if (!svg) {
       toast.error('QR code is not ready.');
       return;
@@ -403,14 +451,12 @@ function EditEvent() {
 
     const serializer = new XMLSerializer();
     const svgString = serializer.serializeToString(svg);
-
     const svgBlob = new Blob([svgString], {
       type: 'image/svg+xml;charset=utf-8'
     });
 
     const url = URL.createObjectURL(svgBlob);
     const anchor = document.createElement('a');
-
     anchor.href = url;
     anchor.download = `snapguest-${formData.slug}-qr.svg`;
 
@@ -419,13 +465,12 @@ function EditEvent() {
     anchor.remove();
 
     URL.revokeObjectURL(url);
-
     toast.success('QR code downloaded!');
   };
 
   /* ============================================================
      LOADING
-     ============================================================ */
+  ============================================================ */
 
   if (loading) {
     return (
@@ -438,6 +483,10 @@ function EditEvent() {
 
   if (!event) return null;
 
+  /* ============================================================
+     RENDER
+  ============================================================ */
+
   return (
     <div
       className="edit-event-page"
@@ -445,9 +494,7 @@ function EditEvent() {
         '--event-color': formData.primary_color
       }}
     >
-      {/* ======================================================
-          HEADER
-          ====================================================== */}
+      {/* HEADER */}
 
       <header className="edit-event-header">
         <Link to="/dashboard" className="edit-back-button">
@@ -466,7 +513,7 @@ function EditEvent() {
           onClick={() =>
             document.getElementById('event-settings-form')?.requestSubmit()
           }
-          disabled={saving}
+          disabled={saving || uploadingCover}
         >
           <FiSave />
           <span>Save</span>
@@ -475,17 +522,28 @@ function EditEvent() {
 
       <main className="edit-event-content">
 
-        {/* ====================================================
-            EVENT HERO
-            ==================================================== */}
+        {/* ==================================================
+            EVENT HERO — NOW USES COVER IMAGE
+        ================================================== */}
 
-        <section className="event-settings-hero">
-          <div
-            className="event-color-orb"
-            style={{
-              background: formData.primary_color
-            }}
-          />
+        <section
+          className="event-settings-hero"
+          style={
+            coverPreview
+              ? {
+                  backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.85)), url(${coverPreview})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }
+              : {}
+          }
+        >
+          {!coverPreview && (
+            <div
+              className="event-color-orb"
+              style={{ background: formData.primary_color }}
+            />
+          )}
 
           <div className="event-hero-copy">
             <span>EVENT CONTROL CENTRE</span>
@@ -501,9 +559,9 @@ function EditEvent() {
           </div>
         </section>
 
-        {/* ====================================================
+        {/* ==================================================
             STATS
-            ==================================================== */}
+        ================================================== */}
 
         <section className="event-stats-row">
           <div>
@@ -511,19 +569,16 @@ function EditEvent() {
             <strong>{mediaStats.photos}</strong>
             <span>Photos</span>
           </div>
-
           <div>
             <FiVideo />
             <strong>{mediaStats.videos}</strong>
             <span>Videos</span>
           </div>
-
           <div>
             <FiUsers />
             <strong>{mediaStats.guests}</strong>
             <span>Guests</span>
           </div>
-
           <div>
             <FiCamera />
             <strong>{formData.guest_upload_limit}</strong>
@@ -531,35 +586,31 @@ function EditEvent() {
           </div>
         </section>
 
-        {/* ====================================================
+        {/* ==================================================
             QUICK ACTIONS
-            ==================================================== */}
+        ================================================== */}
 
         <section className="quick-actions">
           <Link to={`/e/${formData.slug}`} className="quick-action">
             <FiCamera />
             <span>Open Camera</span>
           </Link>
-
           <Link to={`/e/${formData.slug}/live`} className="quick-action">
             <FiTv />
             <span>Live Wall</span>
           </Link>
-
           <Link to={`/e/${formData.slug}/gallery`} className="quick-action">
             <FiImage />
             <span>Gallery</span>
           </Link>
-
           <button
             type="button"
             className="quick-action"
-            onClick={() => setShowQR(previous => !previous)}
+            onClick={() => setShowQR((previous) => !previous)}
           >
             <FaQrcode />
             <span>Event QR</span>
           </button>
-
           <button
             type="button"
             className="quick-action quick-action-accent"
@@ -570,9 +621,9 @@ function EditEvent() {
           </button>
         </section>
 
-        {/* ====================================================
+        {/* ==================================================
             QR
-            ==================================================== */}
+        ================================================== */}
 
         {showQR && (
           <section className="settings-card qr-settings-card">
@@ -624,9 +675,9 @@ function EditEvent() {
           </section>
         )}
 
-        {/* ====================================================
+        {/* ==================================================
             GALLERY SHARE CARD
-            ==================================================== */}
+        ================================================== */}
 
         <section className="settings-card gallery-share-card">
           <div className="settings-card-heading">
@@ -644,7 +695,6 @@ function EditEvent() {
 
           <div className="event-url-box">
             <span>{galleryUrl}</span>
-
             <button
               type="button"
               onClick={async () => {
@@ -669,7 +719,6 @@ function EditEvent() {
               <FiShare2 />
               Share with Host
             </button>
-
             <Link
               to={`/e/${formData.slug}/gallery`}
               className="gallery-share-secondary"
@@ -680,11 +729,91 @@ function EditEvent() {
           </div>
         </section>
 
-        {/* ====================================================
+        {/* ==================================================
             FORM
-            ==================================================== */}
+        ================================================== */}
 
         <form id="event-settings-form" onSubmit={handleSubmit}>
+
+          {/* ==================================================
+              COVER IMAGE CARD — NEW
+          ================================================== */}
+
+          <section className="settings-card cover-edit-card">
+            <div className="settings-card-heading">
+              <div>
+                <span>EVENT BRANDING</span>
+                <h2>Cover image</h2>
+              </div>
+              <FiImage />
+            </div>
+
+            <p className="settings-description">
+              This image appears on your dashboard and across the guest
+              experience.
+            </p>
+
+            <div className="cover-edit-area">
+              {coverPreview ? (
+                <div className="cover-edit-preview">
+                  <img src={coverPreview} alt="Event cover" />
+
+                  <div className="cover-edit-overlay">
+                    <button
+                      type="button"
+                      className="cover-edit-btn"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={saving}
+                    >
+                      <FiUpload size={14} />
+                      Change
+                    </button>
+
+                    <button
+                      type="button"
+                      className="cover-edit-btn danger"
+                      onClick={handleCoverRemove}
+                      disabled={saving}
+                    >
+                      <FiX size={14} />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="cover-edit-empty"
+                  onClick={() => coverInputRef.current?.click()}
+                  disabled={saving || uploadingCover}
+                >
+                  <span className="cover-edit-empty-icon">
+                    <FiUpload size={24} />
+                  </span>
+                  <strong>Upload a cover image</strong>
+                  <span className="cover-edit-empty-hint">
+                    JPG, PNG, or WEBP · max 5MB
+                  </span>
+                </button>
+              )}
+
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverSelect}
+                style={{ display: 'none' }}
+              />
+            </div>
+
+            {uploadingCover && (
+              <div className="cover-edit-uploading">
+                <span className="button-loader" />
+                Uploading cover image…
+              </div>
+            )}
+          </section>
+
           {/* BASIC DETAILS */}
 
           <section className="settings-card">
@@ -822,7 +951,7 @@ function EditEvent() {
             </p>
 
             <div className="camera-mode-grid">
-              {CAMERA_MODES.map(cameraMode => {
+              {CAMERA_MODES.map((cameraMode) => {
                 const active = formData.camera_modes.includes(cameraMode.key);
 
                 return (
@@ -852,12 +981,12 @@ function EditEvent() {
             <button
               type="submit"
               className="primary-settings-button"
-              disabled={saving}
+              disabled={saving || uploadingCover}
             >
-              {saving ? (
+              {saving || uploadingCover ? (
                 <>
                   <span className="button-loader" />
-                  Saving changes…
+                  {uploadingCover ? 'Uploading cover…' : 'Saving changes…'}
                 </>
               ) : (
                 <>
@@ -878,9 +1007,7 @@ function EditEvent() {
           </section>
         </form>
 
-        {/* ====================================================
-            DANGER ZONE
-            ==================================================== */}
+        {/* DANGER ZONE */}
 
         <section className="danger-zone">
           <div>
@@ -901,14 +1028,11 @@ function EditEvent() {
           </button>
         </section>
 
-        {/* ====================================================
-            MOBILE FOOTER
-            ==================================================== */}
+        {/* FOOTER */}
 
         <footer className="edit-event-footer">
           <span>Signed in as</span>
           <strong>{user?.email}</strong>
-
           <a href={eventUrl} target="_blank" rel="noreferrer">
             <FiExternalLink />
             Public event

@@ -1105,3 +1105,168 @@
     grid-column: 1 / -1;
   }
 }
+/* ============================================================
+   COVER IMAGE EDITOR
+   ============================================================ */
+
+   .cover-edit-card {
+    background: linear-gradient(180deg, #fff, #fafafa);
+  }
+  
+  .cover-edit-area {
+    margin-top: 4px;
+  }
+  
+  .cover-edit-empty {
+    width: 100%;
+    min-height: 180px;
+  
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  
+    padding: 26px;
+  
+    border: 2px dashed rgba(0, 0, 0, 0.12);
+    border-radius: 18px;
+  
+    background: #fafafa;
+    color: #666;
+  
+    cursor: pointer;
+  
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease;
+  }
+  
+  .cover-edit-empty:hover {
+    border-color: var(--event-color);
+    background: color-mix(
+      in srgb,
+      var(--event-color) 4%,
+      #fff
+    );
+  }
+  
+  .cover-edit-empty-icon {
+    width: 54px;
+    height: 54px;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    border-radius: 18px;
+  
+    background: color-mix(
+      in srgb,
+      var(--event-color) 12%,
+      transparent
+    );
+    color: var(--event-color);
+  }
+  
+  .cover-edit-empty strong {
+    font-size: 14px;
+    color: #111;
+  }
+  
+  .cover-edit-empty-hint {
+    font-size: 11px;
+    color: #999;
+  }
+  
+  .cover-edit-preview {
+    position: relative;
+  
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  
+    border-radius: 18px;
+    overflow: hidden;
+  
+    background: #111;
+  }
+  
+  .cover-edit-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  
+  .cover-edit-overlay {
+    position: absolute;
+    inset: 0;
+  
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 8px;
+  
+    padding: 12px;
+  
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.6),
+      transparent 60%
+    );
+  
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .cover-edit-preview:hover .cover-edit-overlay,
+  .cover-edit-preview:focus-within .cover-edit-overlay {
+    opacity: 1;
+  }
+  
+  .cover-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  
+    padding: 8px 14px;
+  
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+  
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+  
+    color: #fff;
+  
+    font-size: 11px;
+    font-weight: 700;
+  
+    cursor: pointer;
+  }
+  
+  .cover-edit-btn.danger {
+    background: rgba(239, 68, 68, 0.4);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+  
+  .cover-edit-uploading {
+    margin-top: 12px;
+  
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  
+    color: #666;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  
+  /* ============================================================
+     HERO — NOW USES COVER IMAGE
+     ============================================================ */
+  
+  .event-settings-hero {
+    background-size: cover;
+    background-position: center;
+  }

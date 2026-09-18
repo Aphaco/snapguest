@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Spinner } from 'react-bootstrap';
+import JSZip from 'jszip';
 import {
   FiArrowLeft,
   FiImage,
@@ -11,7 +12,9 @@ import {
   FiShare2,
   FiCamera,
   FiGrid,
-  FiMaximize2
+  FiChevronLeft,
+  FiChevronRight,
+  FiArchive
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './EventGallery.css';
@@ -23,14 +26,16 @@ function EventGallery() {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'photo' | 'video'
+  const [downloading, setDownloading] = useState(false);
+  const [zipProgress, setZipProgress] = useState(null); // null or percent
 
-  const [downloadingAll, setDownloadingAll] = useState(false);
+  const touchStartX = useRef(null);
 
   /* ============================================================
-     LOAD EVENT + MEDIA
-     ============================================================ */
+     LOAD
+  ============================================================ */
 
   useEffect(() => {
     loadEventAndMedia();
@@ -72,19 +77,58 @@ function EventGallery() {
   };
 
   /* ============================================================
+     FILTERED MEDIA
+  ============================================================ */
+
+  const filteredMedia =
+    filter === 'all'
+      ? media
+      : media.filter((item) => item.type === filter);
+
+  const photoCount = media.filter((m) => m.type === 'photo').length;
+  const videoCount = media.filter((m) => m.type === 'video').length;
+
+  /* ============================================================
      DOWNLOAD SINGLE
-     ============================================================ */
+  ============================================================ */
 
   const downloadSingle = async (item) => {
+    if (downloading) return;
+    setDownloading(true);
+
     try {
       const url = item.file_url;
       const ext = item.type === 'photo' ? 'jpg' : 'webm';
       const filename = `snapguest-${item.id.slice(0, 8)}.${ext}`;
 
-      // Fetch the file as a blob so we can force-download it
       const response = await fetch(url);
       const blob = await response.blob();
 
+      /* Try Web Share API first (best on iOS) */
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, {
+          type: blob.type || 'application/octet-stream'
+        });
+
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'SnapGuest moment'
+            });
+            toast.success('Saved to your device 📥');
+            setDownloading(false);
+            return;
+          } catch (err) {
+            if (err?.name === 'AbortError') {
+              setDownloading(false);
+              return;
+            }
+          }
+        }
+      }
+
+      /* Fallback: anchor download */
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -94,49 +138,99 @@ function EventGallery() {
       link.click();
       link.remove();
 
-      URL.revokeObjectURL(blobUrl);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
 
       toast.success('Saved to your device 📥');
     } catch (error) {
       console.error('Download error:', error);
-
-      // Fallback: open in new tab
-      window.open(item.file_url, '_blank');
+      toast.error('Could not download this moment.');
+    } finally {
+      setDownloading(false);
     }
   };
 
   /* ============================================================
-     DOWNLOAD ALL
-     ============================================================ */
+     DOWNLOAD ALL (ZIP)
+  ============================================================ */
 
   const downloadAll = async () => {
-    if (!media.length) return;
+    if (!media.length || zipProgress !== null) return;
 
-    setDownloadingAll(true);
-    toast.success('Starting download…');
+    setZipProgress(0);
+
+    const zip = new JSZip();
 
     try {
-      // Download sequentially to avoid overwhelming the browser
-      for (let i = 0; i < media.length; i++) {
-        const item = media[i];
-        await downloadSingle(item);
+      const total = media.length;
 
-        // Small delay so the browser doesn't block rapid downloads
-        await new Promise((resolve) => setTimeout(resolve, 400));
+      for (let i = 0; i < total; i++) {
+        const item = media[i];
+
+        try {
+          const response = await fetch(item.file_url);
+          const blob = await response.blob();
+
+          const ext = item.type === 'photo' ? 'jpg' : 'webm';
+          const filename = `${String(i + 1).padStart(3, '0')}-${item.id.slice(
+            0,
+            8
+          )}.${ext}`;
+
+          zip.file(filename, blob);
+        } catch (err) {
+          console.warn('Skipped item:', item.id, err);
+        }
+
+        setZipProgress(Math.round(((i + 1) / total) * 80));
       }
 
-      toast.success('All moments downloaded! 🎉');
+      setZipProgress(85);
+
+      const zipBlob = await zip.generateAsync(
+        {
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 }
+        },
+        (metadata) => {
+          // metadata.percent goes 0-100 during zip compression
+          const p = 85 + Math.round((metadata.percent / 100) * 15);
+          setZipProgress(Math.min(p, 100));
+        }
+      );
+
+      /* Download the ZIP */
+      const safeName =
+        (event?.name || 'snapguest-event')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'snapguest-event';
+
+      const filename = `${safeName}-moments.zip`;
+
+      const blobUrl = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+
+      toast.success('ZIP downloaded 📦');
     } catch (error) {
-      console.error('Download all error:', error);
-      toast.error('Some downloads may have failed.');
+      console.error('ZIP error:', error);
+      toast.error('Could not create the ZIP file.');
     } finally {
-      setDownloadingAll(false);
+      setZipProgress(null);
     }
   };
 
   /* ============================================================
-     SHARE GALLERY LINK
-     ============================================================ */
+     SHARE
+  ============================================================ */
 
   const shareGallery = async () => {
     const url = window.location.href;
@@ -159,20 +253,60 @@ function EventGallery() {
   };
 
   /* ============================================================
-     FILTERED MEDIA
-     ============================================================ */
+     LIGHTBOX
+  ============================================================ */
 
-  const filteredMedia =
-    filter === 'all'
-      ? media
-      : media.filter((item) => item.type === filter);
+  const openLightbox = (index) => setSelectedIndex(index);
+  const closeLightbox = () => setSelectedIndex(null);
 
-  const photoCount = media.filter((m) => m.type === 'photo').length;
-  const videoCount = media.filter((m) => m.type === 'video').length;
+  const goPrev = () => {
+    if (selectedIndex === null) return;
+    setSelectedIndex(
+      (selectedIndex - 1 + filteredMedia.length) % filteredMedia.length
+    );
+  };
+
+  const goNext = () => {
+    if (selectedIndex === null) return;
+    setSelectedIndex((selectedIndex + 1) % filteredMedia.length);
+  };
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.changedTouches[0].screenX;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+
+    const deltaX = e.changedTouches[0].screenX - touchStartX.current;
+
+    if (Math.abs(deltaX) > 50) {
+      if (deltaX > 0) {
+        goPrev();
+      } else {
+        goNext();
+      }
+    }
+
+    touchStartX.current = null;
+  };
+
+  useEffect(() => {
+    if (selectedIndex === null) return;
+
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'Escape') closeLightbox();
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedIndex, filteredMedia.length]);
 
   /* ============================================================
-     LOADING
-     ============================================================ */
+     RENDER: LOADING
+  ============================================================ */
 
   if (loading) {
     return (
@@ -200,11 +334,15 @@ function EventGallery() {
   }
 
   /* ============================================================
-     MAIN RENDER
-     ============================================================ */
+     RENDER
+  ============================================================ */
+
+  const currentItem =
+    selectedIndex !== null ? filteredMedia[selectedIndex] : null;
 
   return (
     <div className="event-gallery-page">
+
       {/* ==========================================
           HEADER
       =========================================== */}
@@ -268,18 +406,18 @@ function EventGallery() {
         {media.length > 0 && (
           <button
             type="button"
-            className="event-gallery-download-all"
+            className="event-gallery-zip-button"
             onClick={downloadAll}
-            disabled={downloadingAll}
+            disabled={zipProgress !== null}
           >
-            {downloadingAll ? (
+            {zipProgress !== null ? (
               <>
-                <Spinner animation="border" size="sm" />
-                Downloading…
+                <span className="mini-spinner light" />
+                {zipProgress}%
               </>
             ) : (
               <>
-                <FiDownload size={14} />
+                <FiArchive size={14} />
                 Download All
               </>
             )}
@@ -288,7 +426,7 @@ function EventGallery() {
       </div>
 
       {/* ==========================================
-          CONTENT
+          GRID
       =========================================== */}
 
       <main className="event-gallery-content">
@@ -318,12 +456,12 @@ function EventGallery() {
           </div>
         ) : (
           <div className="event-gallery-grid">
-            {filteredMedia.map((item) => (
+            {filteredMedia.map((item, index) => (
               <button
                 key={item.id}
                 type="button"
                 className="event-gallery-item"
-                onClick={() => setSelectedMedia(item)}
+                onClick={() => openLightbox(index)}
               >
                 {item.type === 'photo' ? (
                   <img
@@ -345,10 +483,6 @@ function EventGallery() {
                     <FiVideo size={12} />
                   </span>
                 )}
-
-                <span className="event-gallery-zoom-hint">
-                  <FiMaximize2 size={12} />
-                </span>
               </button>
             ))}
           </div>
@@ -356,41 +490,43 @@ function EventGallery() {
       </main>
 
       {/* ==========================================
-          FULLSCREEN VIEWER
+          LIGHTBOX
       =========================================== */}
 
-      {selectedMedia && (
+      {currentItem && (
         <div
-          className="event-gallery-viewer"
-          onClick={() => setSelectedMedia(null)}
+          className="event-gallery-lightbox"
+          onClick={closeLightbox}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
-          <div className="event-gallery-viewer-topbar">
-            <span className="event-gallery-viewer-counter">
-              {filteredMedia.findIndex((m) => m.id === selectedMedia.id) + 1}
-              {' / '}
-              {filteredMedia.length}
+          <div
+            className="event-gallery-lightbox-topbar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="event-gallery-lightbox-counter">
+              {selectedIndex + 1} / {filteredMedia.length}
             </span>
 
-            <div className="event-gallery-viewer-actions">
+            <div className="event-gallery-lightbox-actions">
               <button
                 type="button"
-                className="event-gallery-viewer-action"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  downloadSingle(selectedMedia);
-                }}
-                title="Download"
+                className="event-gallery-lightbox-action"
+                onClick={() => downloadSingle(currentItem)}
+                disabled={downloading}
+                title="Download this"
               >
-                <FiDownload size={20} />
+                {downloading ? (
+                  <span className="mini-spinner light" />
+                ) : (
+                  <FiDownload size={20} />
+                )}
               </button>
 
               <button
                 type="button"
-                className="event-gallery-viewer-action"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedMedia(null);
-                }}
+                className="event-gallery-lightbox-action"
+                onClick={closeLightbox}
                 title="Close"
               >
                 <FiX size={22} />
@@ -399,17 +535,14 @@ function EventGallery() {
           </div>
 
           <div
-            className="event-gallery-viewer-media"
+            className="event-gallery-lightbox-media"
             onClick={(e) => e.stopPropagation()}
           >
-            {selectedMedia.type === 'photo' ? (
-              <img
-                src={selectedMedia.file_url}
-                alt="Event moment"
-              />
+            {currentItem.type === 'photo' ? (
+              <img src={currentItem.file_url} alt="Event moment" />
             ) : (
               <video
-                src={selectedMedia.file_url}
+                src={currentItem.file_url}
                 controls
                 autoPlay
                 playsInline
@@ -417,8 +550,39 @@ function EventGallery() {
             )}
           </div>
 
-          <div className="event-gallery-viewer-hint">
-            Tap the download icon to save this to your phone
+          {filteredMedia.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="event-gallery-lightbox-nav prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goPrev();
+                }}
+                aria-label="Previous"
+              >
+                <FiChevronLeft size={26} />
+              </button>
+
+              <button
+                type="button"
+                className="event-gallery-lightbox-nav next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goNext();
+                }}
+                aria-label="Next"
+              >
+                <FiChevronRight size={26} />
+              </button>
+            </>
+          )}
+
+          <div
+            className="event-gallery-lightbox-hint"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Swipe or use arrows · tap the download icon to save
           </div>
         </div>
       )}

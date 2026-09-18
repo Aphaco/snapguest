@@ -8,6 +8,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiClock,
+  FiDownload,
   FiImage,
   FiRefreshCw,
   FiRotateCw,
@@ -61,6 +62,61 @@ const formatTime = (seconds) => {
     2,
     '0'
   )}`;
+};
+
+/* ============================================================
+   DOWNLOAD HELPER
+   ============================================================ */
+/*
+ * Tries the Web Share API first (best on iOS), then falls
+ * back to a programmatic anchor download (best on Android/
+ * desktop). Returns true if a save action was triggered.
+ */
+const saveFileToDevice = async (blob, filename) => {
+  // ---- Try Web Share API (iOS Safari, some Android) ----
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.share &&
+    navigator.canShare
+  ) {
+    try {
+      const file = new File([blob], filename, {
+        type: blob.type || 'application/octet-stream',
+      });
+
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'SnapGuest moment',
+        });
+        return true;
+      }
+    } catch (error) {
+      // User cancelled share → fall through to anchor download
+      if (error?.name === 'AbortError') {
+        return false;
+      }
+      console.warn('Share API failed, using anchor download:', error);
+    }
+  }
+
+  // ---- Fallback: anchor download (Android/Desktop) ----
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return true;
+  } catch (error) {
+    console.error('Anchor download failed:', error);
+    return false;
+  }
 };
 
 /* ============================================================
@@ -198,10 +254,6 @@ function GuestCamera() {
 
       let token = localStorage.getItem(storageKey);
 
-      /* --------------------------------
-         Existing session
-      -------------------------------- */
-
       if (token) {
         const { data, error } = await supabase
           .from('guest_sessions')
@@ -216,10 +268,6 @@ function GuestCamera() {
           return data;
         }
       }
-
-      /* --------------------------------
-         Create new session
-      -------------------------------- */
 
       token = createId();
 
@@ -284,11 +332,6 @@ function GuestCamera() {
         );
       });
 
-      /*
-       * If there is clearly a rear camera, assume mobile.
-       * Otherwise use the front camera.
-       */
-
       if (hasBackCamera || cameras.length > 1) {
         setIsLaptop(false);
         setFacingMode('environment');
@@ -327,8 +370,6 @@ function GuestCamera() {
         const targetFacingMode =
           requestedFacingMode || facingMode || 'user';
 
-        /* Stop old stream */
-
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => {
             track.stop();
@@ -338,14 +379,6 @@ function GuestCamera() {
         }
 
         setIsCameraReady(false);
-
-        /*
-         * Always request audio.
-         *
-         * This is important because a stream requested with
-         * audio:false cannot later be used for proper video
-         * recording with sound.
-         */
 
         const constraints = {
           video: {
@@ -369,11 +402,6 @@ function GuestCamera() {
             constraints
           );
         } catch (firstError) {
-          /*
-           * Some laptops / browsers don't like the first constraint.
-           * Fall back to a simpler request.
-           */
-
           console.warn(
             'Primary camera constraints failed:',
             firstError
@@ -400,10 +428,6 @@ function GuestCamera() {
         video.playsInline = true;
         video.autoplay = true;
 
-        /*
-         * Wait for metadata if necessary.
-         */
-
         if (video.readyState < 1) {
           await new Promise((resolve) => {
             const timeout = setTimeout(resolve, 3000);
@@ -424,10 +448,6 @@ function GuestCamera() {
           });
         }
 
-        /*
-         * Explicitly play.
-         */
-
         try {
           await video.play();
         } catch (playError) {
@@ -439,15 +459,6 @@ function GuestCamera() {
           video.muted = true;
           await video.play().catch(() => {});
         }
-
-        /*
-         * The important part:
-         *
-         * Once we have the stream and video element,
-         * mark the camera ready.
-         *
-         * We don't keep the UI stuck behind a loading spinner.
-         */
 
         setIsCameraReady(true);
         setCameraError(null);
@@ -517,11 +528,6 @@ function GuestCamera() {
       await detectDeviceType();
 
       setLoading(false);
-
-      /*
-       * Give React one render so the <video> element definitely
-       * exists before starting the camera.
-       */
 
       setTimeout(() => {
         if (mounted) {
@@ -628,12 +634,6 @@ function GuestCamera() {
   const retryCamera = async () => {
     setCameraError(null);
     await detectDeviceType();
-
-    /*
-     * Give state a moment to settle, but explicitly request the
-     * currently intended camera so we don't use stale state.
-     */
-
     await startCamera(facingMode);
   };
 
@@ -657,11 +657,6 @@ function GuestCamera() {
     }
 
     try {
-      /*
-       * Match the portrait camera frame by cropping the source
-       * exactly like CSS object-fit: cover.
-       */
-
       const sourceWidth = video.videoWidth;
       const sourceHeight = video.videoHeight;
 
@@ -677,27 +672,12 @@ function GuestCamera() {
       let cropY = 0;
 
       if (sourceRatio > targetRatio) {
-        /*
-         * Source is wider than target.
-         * Crop left/right.
-         */
-
         cropWidth = sourceHeight * targetRatio;
         cropX = (sourceWidth - cropWidth) / 2;
       } else {
-        /*
-         * Source is taller than target.
-         * Crop top/bottom.
-         */
-
         cropHeight = sourceWidth / targetRatio;
         cropY = (sourceHeight - cropHeight) / 2;
       }
-
-      /*
-       * Keep output high quality but don't create ridiculous
-       * files on phones.
-       */
 
       const outputWidth = Math.min(
         Math.round(cropWidth),
@@ -721,16 +701,7 @@ function GuestCamera() {
 
       context.save();
 
-      /*
-       * Apply selected effect to the saved image.
-       */
-
       context.filter = getCurrentFilter();
-
-      /*
-       * We deliberately DO NOT mirror the saved image.
-       * The front-camera preview is mirrored with CSS only.
-       */
 
       context.drawImage(
         video,
@@ -759,12 +730,6 @@ function GuestCamera() {
             setCapturedImage(reader.result);
             setCapturedVideo(null);
             setCapturedVideoBlob(null);
-
-            /*
-             * Default to public because this is an event camera.
-             * Guest can still choose Private in preview.
-             */
-
             setPublishToWall(true);
             setShowPreview(true);
           };
@@ -983,20 +948,87 @@ function GuestCamera() {
       previewVideoUrlRef.current = null;
     }
 
-    /*
-     * Camera remains running underneath.
-     */
-
     setTimeout(() => {
       videoRef.current?.play().catch(() => {});
     }, 50);
   };
 
   /* ============================================================
-     UPLOAD MEDIA
+     SAVE TO PHONE (NO UPLOAD)
+  ============================================================ */
+  /*
+   * Downloads the captured media straight to the guest's
+   * device. Does NOT touch Supabase, does NOT count toward
+   * the upload limit.
+   */
+
+  const saveToPhone = async () => {
+    if (!capturedImage && !capturedVideoBlob) {
+      toast.error('There is nothing to save.');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      let blob;
+      let filename;
+
+      if (capturedImage) {
+        // Convert base64 → blob
+        const response = await fetch(capturedImage);
+        blob = await response.blob();
+        filename = `snapguest-${Date.now()}.jpg`;
+      } else {
+        blob = capturedVideoBlob;
+        filename = `snapguest-${Date.now()}.${
+          capturedVideoBlob?.type?.includes('mp4')
+            ? 'mp4'
+            : 'webm'
+        }`;
+      }
+
+      const ok = await saveFileToDevice(blob, filename);
+
+      if (ok) {
+        toast.success('Saved to your device 📥');
+
+        // Clean up preview, return to camera
+        setShowPreview(false);
+        setCapturedImage(null);
+        setCapturedVideo(null);
+        setCapturedVideoBlob(null);
+
+        if (previewVideoUrlRef.current) {
+          URL.revokeObjectURL(previewVideoUrlRef.current);
+          previewVideoUrlRef.current = null;
+        }
+
+        setTimeout(() => {
+          videoRef.current?.play().catch(() => {});
+        }, 200);
+      }
+    } catch (error) {
+      console.error('Save-to-phone error:', error);
+      toast.error('Could not save to your device.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /* ============================================================
+     UPLOAD TO LIVE WALL
   ============================================================ */
 
   const uploadMedia = async () => {
+    /* ---------- PATH A: Save to Phone (no upload) ---------- */
+    if (!publishToWall) {
+      await saveToPhone();
+      return;
+    }
+
+    /* ---------- PATH B: Upload to Live Wall ---------- */
+
     if (!event) {
       toast.error('Event is not loaded.');
       return;
@@ -1030,10 +1062,6 @@ function GuestCamera() {
       let fileExtension;
       let blob;
 
-      /* -----------------------------
-         PHOTO
-      ----------------------------- */
-
       if (capturedImage) {
         fileType = 'photo';
         fileExtension = 'jpg';
@@ -1047,19 +1075,8 @@ function GuestCamera() {
         }
 
         blob = await response.blob();
-      }
-
-      /* -----------------------------
-         VIDEO
-      ----------------------------- */
-
-      else if (capturedVideoBlob) {
+      } else if (capturedVideoBlob) {
         fileType = 'video';
-
-        /*
-         * MediaRecorder currently produces WebM in most
-         * supported browsers.
-         */
 
         fileExtension = capturedVideoBlob.type.includes(
           'mp4'
@@ -1076,10 +1093,6 @@ function GuestCamera() {
         );
       }
 
-      /* -----------------------------
-         FILE
-      ----------------------------- */
-
       const fileName = `${Date.now()}-${createId()}.${fileExtension}`;
 
       const file = new File(
@@ -1095,10 +1108,6 @@ function GuestCamera() {
       );
 
       uploadedPath = `events/${event.id}/${fileName}`;
-
-      /* -----------------------------
-         STORAGE UPLOAD
-      ----------------------------- */
 
       const { error: storageError } =
         await supabase.storage
@@ -1117,10 +1126,6 @@ function GuestCamera() {
         throw storageError;
       }
 
-      /* -----------------------------
-         PUBLIC URL
-      ----------------------------- */
-
       const { data: publicUrlData } =
         supabase.storage
           .from('event-media')
@@ -1135,12 +1140,6 @@ function GuestCamera() {
         );
       }
 
-      /* -----------------------------
-         IMPORTANT:
-         approved:true makes the item
-         appear on your Live Wall.
-      ----------------------------- */
-
       const { data: mediaRow, error: mediaError } =
         await supabase
           .from('media')
@@ -1150,7 +1149,7 @@ function GuestCamera() {
               type: fileType,
               file_url: publicUrl,
               guest_session_id: guestSession.id,
-              approved: publishToWall,
+              approved: true,
             },
           ])
           .select()
@@ -1159,10 +1158,6 @@ function GuestCamera() {
       if (mediaError) {
         throw mediaError;
       }
-
-      /* -----------------------------
-         UPDATE GUEST COUNT
-      ----------------------------- */
 
       const newCount = uploadCount + 1;
 
@@ -1194,27 +1189,13 @@ function GuestCamera() {
           : previous
       );
 
-      /* -----------------------------
-         SUCCESS
-      ----------------------------- */
-
       toast.success(
-        publishToWall
-          ? `${
-              fileType === 'photo'
-                ? 'Photo'
-                : 'Video'
-            } is live! 🎉`
-          : `${
-              fileType === 'photo'
-                ? 'Photo'
-                : 'Video'
-            } saved privately.`
+        `${
+          fileType === 'photo'
+            ? 'Photo'
+            : 'Video'
+        } is live! 🎉`
       );
-
-      /*
-       * Clean preview
-       */
 
       setShowPreview(false);
       setCapturedImage(null);
@@ -1229,25 +1210,12 @@ function GuestCamera() {
         previewVideoUrlRef.current = null;
       }
 
-      /*
-       * If the Live Wall is already open elsewhere,
-       * Supabase Realtime will receive this row.
-       */
-
-      console.log(
-        'Uploaded media:',
-        mediaRow
-      );
+      console.log('Uploaded media:', mediaRow);
     } catch (error) {
       console.error(
         'Upload error:',
         error
       );
-
-      /*
-       * If Storage worked but database insertion failed,
-       * remove the orphaned Storage object.
-       */
 
       if (uploadedPath) {
         try {
@@ -1386,10 +1354,6 @@ function GuestCamera() {
     );
   }
 
-  /* ============================================================
-     EVENT CLOSED / DRAFT
-  ============================================================ */
-
   if (event.status !== 'active') {
     return (
       <div className="guest-camera-page guest-camera-page-closed">
@@ -1448,13 +1412,13 @@ function GuestCamera() {
       =========================================== */}
 
       <header className="guest-camera-topbar">
-        <Link
-          to={`/e/${eventSlug}`}
-          className="guest-camera-icon-button"
-          aria-label="Back"
-        >
-          <FiArrowLeft size={20} />
-        </Link>
+      <Link
+  to={`/e/${eventSlug}/gallery`}
+  className="guest-camera-icon-button"
+  aria-label="View gallery"
+>
+  <FiArrowLeft size={20} />
+</Link>
 
         <div className="guest-camera-event-info">
           <span className="guest-camera-event-label">
@@ -1516,11 +1480,7 @@ function GuestCamera() {
             }}
           />
 
-          {/* DARK EDGE / CINEMATIC VIGNETTE */}
-
           <div className="guest-camera-vignette" />
-
-          {/* TOP CAMERA INFORMATION */}
 
           <div className="guest-camera-overlay-top">
             <div className="guest-camera-status-pill">
@@ -1557,8 +1517,6 @@ function GuestCamera() {
             )}
           </div>
 
-          {/* CAMERA ERROR */}
-
           {cameraError && (
             <div className="guest-camera-error-overlay">
               <div className="guest-camera-error-icon">
@@ -1589,8 +1547,6 @@ function GuestCamera() {
             </div>
           )}
 
-          {/* INITIAL CAMERA LOADING */}
-
           {!cameraError &&
             !isCameraReady && (
               <div className="guest-camera-preparing">
@@ -1606,8 +1562,6 @@ function GuestCamera() {
                 </span>
               </div>
             )}
-
-          {/* FILTER STRIP */}
 
           {isCameraReady &&
             !isRecording &&
@@ -1661,12 +1615,8 @@ function GuestCamera() {
               </div>
             )}
 
-          {/* BOTTOM CAMERA OVERLAY */}
-
           {isCameraReady && (
             <div className="guest-camera-overlay-bottom">
-              {/* FILTER BUTTON */}
-
               <button
                 type="button"
                 className={`guest-camera-side-button ${
@@ -1692,8 +1642,6 @@ function GuestCamera() {
                   ]}
                 </span>
               </button>
-
-              {/* SHUTTER */}
 
               <button
                 type="button"
@@ -1725,8 +1673,6 @@ function GuestCamera() {
                 <span className="guest-camera-shutter-inner" />
               </button>
 
-              {/* SWITCH CAMERA */}
-
               <button
                 type="button"
                 className="guest-camera-side-button"
@@ -1745,10 +1691,6 @@ function GuestCamera() {
             </div>
           )}
         </div>
-
-        {/* ==========================================
-            MODE SWITCHER
-        =========================================== */}
 
         <div className="guest-camera-mode-switcher">
           <button
@@ -1785,10 +1727,6 @@ function GuestCamera() {
             Video
           </button>
         </div>
-
-        {/* ==========================================
-            FOOTER ACTIONS
-        =========================================== */}
 
         <div className="guest-camera-footer">
           <button
@@ -1838,8 +1776,6 @@ function GuestCamera() {
             </span>
           </Link>
         </div>
-
-        {/* INFO */}
 
         <button
           type="button"
@@ -1957,19 +1893,19 @@ function GuestCamera() {
               <div className="guest-camera-publish-heading">
                 <div>
                   <strong>
-                    Share this moment?
+                    What would you like to do?
                   </strong>
 
                   <span>
-                    Choose where this capture
-                    goes.
+                    Choose what happens to this
+                    capture.
                   </span>
                 </div>
 
                 <span className="guest-camera-publish-icon">
                   {publishToWall
                     ? '✨'
-                    : '🔒'}
+                    : '📥'}
                 </span>
               </div>
 
@@ -1997,7 +1933,7 @@ function GuestCamera() {
 
                     <span>
                       Everyone at the event
-                      can see it.
+                      will see it.
                     </span>
                   </div>
 
@@ -2021,17 +1957,17 @@ function GuestCamera() {
                   disabled={uploading}
                 >
                   <div className="publish-option-icon private">
-                    🔒
+                    📥
                   </div>
 
                   <div>
                     <strong>
-                      Keep Private
+                      Save to Phone
                     </strong>
 
                     <span>
-                      Save it without putting
-                      it on the Live Wall.
+                      Keep it for yourself — no
+                      upload.
                     </span>
                   </div>
 
@@ -2066,14 +2002,23 @@ function GuestCamera() {
                 {uploading ? (
                   <>
                     <span className="upload-spinner" />
-                    Uploading...
+                    {publishToWall
+                      ? 'Uploading...'
+                      : 'Saving...'}
                   </>
                 ) : (
                   <>
-                    <FiUpload />
-                    {publishToWall
-                      ? 'Post Moment'
-                      : 'Save Moment'}
+                    {publishToWall ? (
+                      <>
+                        <FiUpload />
+                        Post Moment
+                      </>
+                    ) : (
+                      <>
+                        <FiDownload />
+                        Save to Phone
+                      </>
+                    )}
                   </>
                 )}
               </button>

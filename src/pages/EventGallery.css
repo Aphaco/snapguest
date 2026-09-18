@@ -126,7 +126,7 @@
     color: #111;
   }
   
-  .event-gallery-download-all {
+  .event-gallery-zip-button {
     margin-left: auto;
     display: inline-flex;
     align-items: center;
@@ -147,17 +147,17 @@
     transition: transform 0.18s ease;
   }
   
-  .event-gallery-download-all:active {
+  .event-gallery-zip-button:active {
     transform: scale(0.96);
   }
   
-  .event-gallery-download-all:disabled {
+  .event-gallery-zip-button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
   }
   
   /* ============================================================
-     CONTENT / GRID
+     GRID
      ============================================================ */
   
   .event-gallery-content {
@@ -205,26 +205,6 @@
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.7);
     color: #fff;
-  }
-  
-  .event-gallery-zoom-hint {
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: #fff;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-  
-  .event-gallery-item:hover .event-gallery-zoom-hint {
-    opacity: 1;
   }
   
   /* ============================================================
@@ -278,34 +258,30 @@
   }
   
   /* ============================================================
-     FULLSCREEN VIEWER
+     LIGHTBOX
      ============================================================ */
   
-  .event-gallery-viewer {
+  .event-gallery-lightbox {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: rgba(0, 0, 0, 0.98);
+    background: rgba(0, 0, 0, 0.97);
     display: flex;
     flex-direction: column;
     animation: galleryFadeIn 0.2s ease-out;
   }
   
   @keyframes galleryFadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   
-  .event-gallery-viewer-topbar {
+  .event-gallery-lightbox-topbar {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    z-index: 2;
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -320,27 +296,27 @@
     );
   }
   
-  .event-gallery-viewer-counter {
+  .event-gallery-lightbox-counter {
     font-size: 13px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.85);
   }
   
-  .event-gallery-viewer-actions {
+  .event-gallery-lightbox-actions {
     display: flex;
     gap: 8px;
   }
   
-  .event-gallery-viewer-action {
-    width: 42px;
-    height: 42px;
+  .event-gallery-lightbox-action {
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
     color: #fff;
     cursor: pointer;
     transition:
@@ -348,31 +324,79 @@
       transform 0.15s ease;
   }
   
-  .event-gallery-viewer-action:hover {
+  .event-gallery-lightbox-action:hover {
     background: rgba(255, 255, 255, 0.2);
   }
   
-  .event-gallery-viewer-action:active {
+  .event-gallery-lightbox-action:active {
     transform: scale(0.92);
   }
   
-  .event-gallery-viewer-media {
+  .event-gallery-lightbox-action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .event-gallery-lightbox-media {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 60px 14px 80px;
+    padding: 70px 14px 90px;
   }
   
-  .event-gallery-viewer-media img,
-  .event-gallery-viewer-media video {
+  .event-gallery-lightbox-media img,
+  .event-gallery-lightbox-media video {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 12px;
+    border-radius: 14px;
+    animation: lightboxZoomIn 0.3s ease-out;
   }
   
-  .event-gallery-viewer-hint {
+  @keyframes lightboxZoomIn {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .event-gallery-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 4;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  
+  .event-gallery-lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
+  .event-gallery-lightbox-nav.prev {
+    left: 16px;
+  }
+  
+  .event-gallery-lightbox-nav.next {
+    right: 16px;
+  }
+  
+  .event-gallery-lightbox-hint {
     position: absolute;
     bottom: max(20px, env(safe-area-inset-bottom));
     left: 0;
@@ -381,6 +405,24 @@
     color: rgba(255, 255, 255, 0.5);
     font-size: 11px;
     padding: 0 20px;
+  }
+  
+  /* ============================================================
+     SPINNERS
+     ============================================================ */
+  
+  .mini-spinner.light {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: gallerySpin 0.7s linear infinite;
+    display: inline-block;
+  }
+  
+  @keyframes gallerySpin {
+    to { transform: rotate(360deg); }
   }
   
   /* ============================================================
@@ -438,9 +480,12 @@
      MOBILE
      ============================================================ */
   
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
+    .event-gallery-lightbox-nav {
+      display: none;
+    }
+  
     .event-gallery-grid {
-      grid-template-columns: repeat(3, 1fr);
       gap: 2px;
     }
   
@@ -453,7 +498,7 @@
       font-size: 10px;
     }
   
-    .event-gallery-download-all {
+    .event-gallery-zip-button {
       padding: 8px 12px;
       font-size: 10px;
     }
