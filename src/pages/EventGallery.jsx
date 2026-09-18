@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Container, Row, Col, Card, Button, Spinner, Badge } from 'react-bootstrap';
-import { FiArrowLeft, FiImage, FiVideo, FiDownload, FiCamera } from 'react-icons/fi';
+import { Spinner } from 'react-bootstrap';
+import {
+  FiArrowLeft,
+  FiImage,
+  FiVideo,
+  FiDownload,
+  FiX,
+  FiShare2,
+  FiCamera,
+  FiGrid,
+  FiMaximize2
+} from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import './EventGallery.css';
 
 function EventGallery() {
   const { eventSlug } = useParams();
+
   const [event, setEvent] = useState(null);
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [filter, setFilter] = useState('all'); // 'all' | 'photo' | 'video'
+
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  /* ============================================================
+     LOAD EVENT + MEDIA
+     ============================================================ */
 
   useEffect(() => {
     loadEventAndMedia();
@@ -19,8 +39,7 @@ function EventGallery() {
   const loadEventAndMedia = async () => {
     try {
       setLoading(true);
-      
-      // Load event
+
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .select('*')
@@ -28,9 +47,13 @@ function EventGallery() {
         .single();
 
       if (eventError) throw eventError;
+      if (!eventData) {
+        toast.error('Event not found');
+        return;
+      }
+
       setEvent(eventData);
 
-      // Load media
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .select('*')
@@ -40,7 +63,6 @@ function EventGallery() {
 
       if (mediaError) throw mediaError;
       setMedia(mediaData || []);
-
     } catch (error) {
       console.error('Error loading gallery:', error);
       toast.error('Failed to load gallery');
@@ -49,113 +71,357 @@ function EventGallery() {
     }
   };
 
-  const downloadAll = async () => {
-    toast.success('Preparing download...');
-    // TODO: Implement batch download
+  /* ============================================================
+     DOWNLOAD SINGLE
+     ============================================================ */
+
+  const downloadSingle = async (item) => {
+    try {
+      const url = item.file_url;
+      const ext = item.type === 'photo' ? 'jpg' : 'webm';
+      const filename = `snapguest-${item.id.slice(0, 8)}.${ext}`;
+
+      // Fetch the file as a blob so we can force-download it
+      const response = await fetch(url);
+      const blob = await response.blob();
+
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(blobUrl);
+
+      toast.success('Saved to your device 📥');
+    } catch (error) {
+      console.error('Download error:', error);
+
+      // Fallback: open in new tab
+      window.open(item.file_url, '_blank');
+    }
   };
+
+  /* ============================================================
+     DOWNLOAD ALL
+     ============================================================ */
+
+  const downloadAll = async () => {
+    if (!media.length) return;
+
+    setDownloadingAll(true);
+    toast.success('Starting download…');
+
+    try {
+      // Download sequentially to avoid overwhelming the browser
+      for (let i = 0; i < media.length; i++) {
+        const item = media[i];
+        await downloadSingle(item);
+
+        // Small delay so the browser doesn't block rapid downloads
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+
+      toast.success('All moments downloaded! 🎉');
+    } catch (error) {
+      console.error('Download all error:', error);
+      toast.error('Some downloads may have failed.');
+    } finally {
+      setDownloadingAll(false);
+    }
+  };
+
+  /* ============================================================
+     SHARE GALLERY LINK
+     ============================================================ */
+
+  const shareGallery = async () => {
+    const url = window.location.href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: event?.name || 'Event Gallery',
+          text: 'Revisit the moments from our event 📸',
+          url
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      toast.success('Gallery link copied!');
+    } catch (error) {
+      console.warn('Share cancelled:', error);
+    }
+  };
+
+  /* ============================================================
+     FILTERED MEDIA
+     ============================================================ */
+
+  const filteredMedia =
+    filter === 'all'
+      ? media
+      : media.filter((item) => item.type === filter);
+
+  const photoCount = media.filter((m) => m.type === 'photo').length;
+  const videoCount = media.filter((m) => m.type === 'video').length;
+
+  /* ============================================================
+     LOADING
+     ============================================================ */
 
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" variant="primary" />
+      <div className="event-gallery-loading">
+        <div className="event-gallery-loading-mark">✦</div>
+        <Spinner animation="border" />
+        <p>Loading gallery…</p>
       </div>
     );
   }
 
-  return (
-    <div className="pb-5">
-      <nav className="nav-mobile d-flex align-items-center">
-        <Link to={`/e/${eventSlug}`} className="text-decoration-none d-flex align-items-center text-dark">
-          <FiArrowLeft size={20} className="me-2" />
-          <span className="brand">Back</span>
-        </Link>
-        <span className="ms-auto text-muted small">{media.length} moments</span>
-      </nav>
+  if (!event) {
+    return (
+      <div className="event-gallery-loading">
+        <div className="event-gallery-empty-card">
+          <div className="event-gallery-empty-icon">📸</div>
+          <h2>Event not found</h2>
+          <p>This link may have expired or is incorrect.</p>
+          <Link to="/" className="event-gallery-primary-button">
+            Go Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-      <Container fluid className="px-3 py-3">
-        <div className="d-flex align-items-center justify-content-between mb-3">
-          <div>
-            <h5 className="fw-bold mb-0">{event?.name}</h5>
-            <span className="text-muted small">Live Gallery</span>
-          </div>
-          {media.length > 0 && (
-            <Button variant="primary" size="sm" onClick={downloadAll} className="rounded-pill">
-              <FiDownload size={14} className="me-1" />
-              Download All
-            </Button>
-          )}
+  /* ============================================================
+     MAIN RENDER
+     ============================================================ */
+
+  return (
+    <div className="event-gallery-page">
+      {/* ==========================================
+          HEADER
+      =========================================== */}
+
+      <header className="event-gallery-header">
+        <Link to={`/e/${eventSlug}`} className="event-gallery-icon-button">
+          <FiArrowLeft size={20} />
+        </Link>
+
+        <div className="event-gallery-title-block">
+          <h1>{event.name}</h1>
+          <p>
+            {media.length} moments · {photoCount} photos · {videoCount} videos
+          </p>
         </div>
 
-        {media.length === 0 ? (
-          <div className="empty-state card-elevated p-5">
-            <div className="icon">🖼️</div>
-            <h5>No moments yet</h5>
-            <p>Be the first to capture a memory!</p>
-            <Link to={`/e/${eventSlug}`}>
-              <Button variant="primary" className="btn-mobile btn-primary-mobile">
-                <FiCamera size={18} className="me-2" />
-                Take a Photo
-              </Button>
-            </Link>
+        <button
+          type="button"
+          className="event-gallery-icon-button"
+          onClick={shareGallery}
+          aria-label="Share gallery"
+        >
+          <FiShare2 size={18} />
+        </button>
+      </header>
+
+      {/* ==========================================
+          TOOLBAR
+      =========================================== */}
+
+      <div className="event-gallery-toolbar">
+        <div className="event-gallery-filters">
+          <button
+            type="button"
+            className={filter === 'all' ? 'active' : ''}
+            onClick={() => setFilter('all')}
+          >
+            <FiGrid size={14} />
+            All
+          </button>
+
+          <button
+            type="button"
+            className={filter === 'photo' ? 'active' : ''}
+            onClick={() => setFilter('photo')}
+          >
+            <FiImage size={14} />
+            Photos
+          </button>
+
+          <button
+            type="button"
+            className={filter === 'video' ? 'active' : ''}
+            onClick={() => setFilter('video')}
+          >
+            <FiVideo size={14} />
+            Videos
+          </button>
+        </div>
+
+        {media.length > 0 && (
+          <button
+            type="button"
+            className="event-gallery-download-all"
+            onClick={downloadAll}
+            disabled={downloadingAll}
+          >
+            {downloadingAll ? (
+              <>
+                <Spinner animation="border" size="sm" />
+                Downloading…
+              </>
+            ) : (
+              <>
+                <FiDownload size={14} />
+                Download All
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* ==========================================
+          CONTENT
+      =========================================== */}
+
+      <main className="event-gallery-content">
+        {filteredMedia.length === 0 ? (
+          <div className="event-gallery-empty">
+            <div className="event-gallery-empty-icon">🖼️</div>
+            <h3>
+              {media.length === 0
+                ? 'No moments yet'
+                : 'Nothing in this filter'}
+            </h3>
+            <p>
+              {media.length === 0
+                ? 'Be the first to capture a memory at this event.'
+                : 'Try selecting a different filter.'}
+            </p>
+
+            {media.length === 0 && (
+              <Link
+                to={`/e/${eventSlug}`}
+                className="event-gallery-primary-button"
+              >
+                <FiCamera size={16} />
+                Open Camera
+              </Link>
+            )}
           </div>
         ) : (
-          <div className="gallery-grid">
-            {media.map((item) => (
-              <div
+          <div className="event-gallery-grid">
+            {filteredMedia.map((item) => (
+              <button
                 key={item.id}
-                className="gallery-item"
+                type="button"
+                className="event-gallery-item"
                 onClick={() => setSelectedMedia(item)}
               >
                 {item.type === 'photo' ? (
-                  <img src={item.file_url} alt="Event moment" loading="lazy" />
+                  <img
+                    src={item.file_url}
+                    alt="Event moment"
+                    loading="lazy"
+                  />
                 ) : (
-                  <video src={item.file_url} muted />
+                  <video
+                    src={item.file_url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
                 )}
+
                 {item.type === 'video' && (
-                  <div className="video-badge">
-                    <FiVideo size={10} />
-                    Video
-                  </div>
+                  <span className="event-gallery-video-badge">
+                    <FiVideo size={12} />
+                  </span>
                 )}
-              </div>
+
+                <span className="event-gallery-zoom-hint">
+                  <FiMaximize2 size={12} />
+                </span>
+              </button>
             ))}
           </div>
         )}
+      </main>
 
-        {/* Media Preview Modal */}
-        {selectedMedia && (
-          <div 
-            className="position-fixed top-0 start-0 end-0 bottom-0 bg-dark d-flex align-items-center justify-content-center"
-            style={{ zIndex: 9999 }}
-            onClick={() => setSelectedMedia(null)}
-          >
-            <div className="position-relative w-100 h-100 d-flex align-items-center justify-content-center p-4">
-              {selectedMedia.type === 'photo' ? (
-                <img
-                  src={selectedMedia.file_url}
-                  alt="Full view"
-                  className="img-fluid"
-                  style={{ maxHeight: '90vh', objectFit: 'contain' }}
-                />
-              ) : (
-                <video
-                  src={selectedMedia.file_url}
-                  controls
-                  autoPlay
-                  className="w-100"
-                  style={{ maxHeight: '90vh' }}
-                />
-              )}
+      {/* ==========================================
+          FULLSCREEN VIEWER
+      =========================================== */}
+
+      {selectedMedia && (
+        <div
+          className="event-gallery-viewer"
+          onClick={() => setSelectedMedia(null)}
+        >
+          <div className="event-gallery-viewer-topbar">
+            <span className="event-gallery-viewer-counter">
+              {filteredMedia.findIndex((m) => m.id === selectedMedia.id) + 1}
+              {' / '}
+              {filteredMedia.length}
+            </span>
+
+            <div className="event-gallery-viewer-actions">
               <button
-                className="position-absolute top-0 end-0 m-4 btn btn-light btn-sm rounded-circle"
-                onClick={() => setSelectedMedia(null)}
+                type="button"
+                className="event-gallery-viewer-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  downloadSingle(selectedMedia);
+                }}
+                title="Download"
               >
-                ✕
+                <FiDownload size={20} />
+              </button>
+
+              <button
+                type="button"
+                className="event-gallery-viewer-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedMedia(null);
+                }}
+                title="Close"
+              >
+                <FiX size={22} />
               </button>
             </div>
           </div>
-        )}
-      </Container>
+
+          <div
+            className="event-gallery-viewer-media"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedMedia.type === 'photo' ? (
+              <img
+                src={selectedMedia.file_url}
+                alt="Event moment"
+              />
+            ) : (
+              <video
+                src={selectedMedia.file_url}
+                controls
+                autoPlay
+                playsInline
+              />
+            )}
+          </div>
+
+          <div className="event-gallery-viewer-hint">
+            Tap the download icon to save this to your phone
+          </div>
+        </div>
+      )}
     </div>
   );
 }

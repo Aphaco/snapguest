@@ -1,308 +1,908 @@
-/* ============================================
-   LIVE WALL - MOBILE RESPONSIVE
-   ============================================ */
+/* ============================================================
+   SNAPGUEST — PREMIUM LIVE WALL
+   ============================================================ */
 
    .live-wall-container {
+    --wall-bg: #070708;
+    --wall-panel: rgba(20, 20, 23, 0.72);
+    --wall-border: rgba(255, 255, 255, 0.09);
+    --wall-text: #ffffff;
+    --wall-muted: rgba(255, 255, 255, 0.55);
+    --wall-accent: #ffffff;
+  
     min-height: 100vh;
     min-height: 100dvh;
-    background: #0a0a0a;
+  
+    width: 100%;
+  
+    background:
+      radial-gradient(
+        circle at 20% 20%,
+        rgba(255, 255, 255, 0.06),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 80% 80%,
+        rgba(255, 255, 255, 0.04),
+        transparent 30%
+      ),
+      #070708;
+  
+    color: var(--wall-text);
+  
     display: flex;
     flex-direction: column;
+  
     position: relative;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  
+    font-family:
+      Inter,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
   }
   
-  /* ============================================
+  /* ============================================================
+     BACKGROUND
+     ============================================================ */
+  
+  .live-wall-background {
+    position: absolute;
+    inset: 0;
+  
+    pointer-events: none;
+    overflow: hidden;
+  }
+  
+  .live-wall-orb {
+    position: absolute;
+  
+    width: 45vw;
+    height: 45vw;
+  
+    max-width: 650px;
+    max-height: 650px;
+  
+    border-radius: 50%;
+  
+    filter: blur(120px);
+  
+    opacity: 0.08;
+  }
+  
+  .live-wall-orb-one {
+    top: -25%;
+    left: -15%;
+    background: #ffffff;
+  }
+  
+  .live-wall-orb-two {
+    bottom: -30%;
+    right: -15%;
+    background: #888888;
+  }
+  
+  /* ============================================================
      LOADING
-     ============================================ */
+     ============================================================ */
   
   .live-wall-loading {
     min-height: 100vh;
+    min-height: 100dvh;
+  
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0a0a0a;
+  
+    background: #070708;
+    color: white;
   }
   
-  /* ============================================
+  .live-wall-loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  
+    text-align: center;
+  }
+  
+  .live-wall-loading-logo {
+    width: 62px;
+    height: 62px;
+  
+    border-radius: 20px;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    font-size: 28px;
+  
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,0.18),
+        rgba(255,255,255,0.04)
+      );
+  
+    border: 1px solid rgba(255,255,255,0.12);
+  
+    box-shadow:
+      0 20px 60px rgba(0,0,0,0.5);
+  }
+  
+  .live-wall-loading-content p {
+    margin: 0;
+  
+    color: rgba(255,255,255,0.5);
+  
+    font-size: 13px;
+  }
+  
+  /* ============================================================
      TOP BAR
-     ============================================ */
+     ============================================================ */
   
   .live-wall-top-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: 12px 16px;
-    padding-top: max(12px, env(safe-area-inset-top));
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
-    z-index: 10;
+    position: relative;
+  
+    z-index: 20;
+  
+    min-height: 76px;
+  
+    padding:
+      max(14px, env(safe-area-inset-top))
+      22px
+      14px;
+  
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
+  
+    gap: 20px;
+  
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(5,5,6,0.95),
+        rgba(5,5,6,0.65),
+        transparent
+      );
   }
   
-  .live-wall-header {
+  .live-wall-brand-area {
+    min-width: 0;
+  
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: center;
+    gap: 13px;
   }
   
   .live-wall-back {
+    width: 38px;
+    height: 38px;
+  
+    flex-shrink: 0;
+  
+    border-radius: 50%;
+  
     display: flex;
     align-items: center;
-    gap: 6px;
-    color: rgba(255, 255, 255, 0.8);
+    justify-content: center;
+  
+    color: white;
     text-decoration: none;
-    font-size: 14px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 6px 14px;
-    border-radius: 20px;
-    transition: background 0.2s;
-    flex-shrink: 0;
-    margin-top: 2px;
+  
+    background: rgba(255,255,255,0.08);
+  
+    border: 1px solid rgba(255,255,255,0.1);
+  
+    transition:
+      transform 0.2s ease,
+      background 0.2s ease;
   }
   
   .live-wall-back:hover {
-    background: rgba(255, 255, 255, 0.2);
     color: white;
+  
+    background: rgba(255,255,255,0.14);
+  
+    transform: translateX(-2px);
   }
   
-  .live-wall-title {
+  .live-wall-event-info {
     min-width: 0;
   }
   
-  .live-wall-name {
-    color: white;
-    font-size: clamp(14px, 4vw, 18px);
+  .live-wall-event-label {
+    font-size: 8px;
+  
+    letter-spacing: 2px;
+  
+    color: rgba(255,255,255,0.42);
+  
     font-weight: 700;
+  
+    margin-bottom: 2px;
+  }
+  
+  .live-wall-event-info h1 {
     margin: 0;
+  
+    font-size: clamp(15px, 2vw, 20px);
+  
+    font-weight: 700;
+  
     white-space: nowrap;
+  
     overflow: hidden;
+  
     text-overflow: ellipsis;
   }
   
   .live-wall-stats {
     display: flex;
-    gap: 6px;
-    color: rgba(255, 255, 255, 0.5);
-    font-size: clamp(10px, 2.5vw, 12px);
+    align-items: center;
+  
+    gap: 8px;
+  
+    margin-top: 3px;
+  
+    color: rgba(255,255,255,0.45);
+  
+    font-size: 10px;
   }
   
-  .live-wall-fullscreen {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    width: 36px;
-    height: 36px;
+  .live-wall-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .live-wall-stats strong {
+    color: rgba(255,255,255,0.85);
+  }
+  
+  .live-wall-dot-divider {
+    opacity: 0.3;
+  }
+  
+  /* ============================================================
+     TOP ACTIONS
+     ============================================================ */
+  
+  .live-wall-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .live-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  
+    height: 32px;
+  
+    padding: 0 12px;
+  
+    border-radius: 30px;
+  
+    background: rgba(255,255,255,0.07);
+  
+    border: 1px solid rgba(255,255,255,0.08);
+  
+    font-size: 9px;
+  
+    font-weight: 800;
+  
+    letter-spacing: 1.2px;
+  }
+  
+  .live-status span,
+  .live-wall-live-badge span {
+    width: 6px;
+    height: 6px;
+  
     border-radius: 50%;
+  
+    background: #ff4d5a;
+  
+    box-shadow:
+      0 0 0 4px rgba(255,77,90,0.1);
+  
+    animation: livePulse 1.6s infinite;
+  }
+  
+  @keyframes livePulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+  
+    50% {
+      opacity: 0.35;
+    }
+  }
+  
+  .live-wall-icon-btn {
+    width: 34px;
+    height: 34px;
+  
+    border-radius: 50%;
+  
+    border: 1px solid rgba(255,255,255,0.1);
+  
+    background: rgba(255,255,255,0.07);
+  
+    color: white;
+  
     display: flex;
     align-items: center;
     justify-content: center;
+  
     cursor: pointer;
-    transition: background 0.2s;
-    flex-shrink: 0;
-    margin-top: 2px;
+  
+    transition:
+      background 0.2s ease,
+      transform 0.2s ease;
   }
   
-  .live-wall-fullscreen:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+  .live-wall-icon-btn:hover {
+    background: rgba(255,255,255,0.13);
+  
+    transform: translateY(-1px);
   }
   
-  /* ============================================
-     MAIN DISPLAY
-     ============================================ */
+  /* ============================================================
+     MAIN
+     ============================================================ */
   
   .live-wall-main {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 12px 80px;
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-  
-  .live-wall-media-wrapper {
-    width: 100%;
-    max-width: 1200px;
     position: relative;
-  }
   
-  .live-wall-media {
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
+    z-index: 5;
+  
+    flex: 1;
+  
+    min-height: 0;
+  
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  
+    padding:
+      8px
+      22px
+      30px;
   }
   
-  .live-wall-image {
+  /* ============================================================
+     STAGE
+     ============================================================ */
+  
+  .live-wall-stage {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
+  
+    max-width: 1400px;
+  
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  
+    gap: 12px;
   }
   
+  /* ============================================================
+     MEDIA FRAME
+     ============================================================ */
+  
+  .live-wall-media-frame {
+    width: 100%;
+  
+    max-height: calc(100vh - 190px);
+  
+    position: relative;
+  
+    display: flex;
+    justify-content: center;
+  
+    transition:
+      transform 0.35s ease,
+      opacity 0.35s ease;
+  }
+  
+  .live-wall-media-inner {
+    position: relative;
+  
+    width: 100%;
+  
+    height: min(
+      calc(100vh - 190px),
+      720px
+    );
+  
+    min-height: 320px;
+  
+    background: #000;
+  
+    border-radius: 22px;
+  
+    overflow: hidden;
+  
+    border: 1px solid rgba(255,255,255,0.11);
+  
+    box-shadow:
+      0 30px 100px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(255,255,255,0.02);
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .live-wall-image,
   .live-wall-video {
     width: 100%;
     height: 100%;
+  
     object-fit: contain;
+  
+    display: block;
+  
+    background: #000;
   }
   
-  /* ============================================
-     EMPTY STATE
-     ============================================ */
-  
-  .live-wall-empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: white;
+  .live-wall-image {
+    animation: mediaIn 0.45s cubic-bezier(.2,.8,.2,1);
   }
   
-  .live-wall-empty-icon {
-    font-size: 56px;
-    margin-bottom: 16px;
+  .live-wall-video {
+    animation: mediaIn 0.45s cubic-bezier(.2,.8,.2,1);
   }
   
-  .live-wall-empty-title {
-    font-size: clamp(20px, 5vw, 28px);
-    font-weight: 700;
-    margin-bottom: 8px;
+  @keyframes mediaIn {
+    from {
+      opacity: 0;
+      transform: scale(1.025);
+    }
+  
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
   
-  .live-wall-empty-text {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: clamp(14px, 3vw, 16px);
-    max-width: 400px;
-    margin: 0 auto 20px;
+  .new-moment-animation .live-wall-media-inner {
+    animation: newMoment 0.7s ease;
   }
   
-  .live-wall-empty-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 10px 20px;
-    border-radius: 30px;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 14px;
+  @keyframes newMoment {
+    0% {
+      transform: scale(0.985);
+    }
+  
+    45% {
+      transform: scale(1.015);
+    }
+  
+    100% {
+      transform: scale(1);
+    }
   }
   
-  /* ============================================
-     MOBILE CONTROLS
-     ============================================ */
+  /* ============================================================
+     MEDIA OVERLAYS
+     ============================================================ */
   
-  .live-wall-mobile-controls {
+  .live-wall-vignette {
     position: absolute;
-    bottom: -60px;
-    left: 50%;
-    transform: translateX(-50%);
+    inset: 0;
+  
+    pointer-events: none;
+  
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.25),
+        transparent 22%,
+        transparent 70%,
+        rgba(0,0,0,0.38)
+      );
+  }
+  
+  .live-wall-media-type {
+    position: absolute;
+  
+    left: 18px;
+    top: 18px;
+  
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 6px;
+  
+    padding: 7px 11px;
+  
+    border-radius: 20px;
+  
+    background: rgba(0,0,0,0.38);
+  
+    border: 1px solid rgba(255,255,255,0.12);
+  
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  
+    font-size: 8px;
+  
+    font-weight: 800;
+  
+    letter-spacing: 1px;
   }
   
-  .live-wall-control-btn {
-    min-width: 40px;
-    min-height: 40px;
-    border: none;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+  .live-wall-live-badge {
+    position: absolute;
+  
+    right: 18px;
+    top: 18px;
+  
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  
+    padding: 7px 11px;
+  
+    border-radius: 20px;
+  
+    background: rgba(0,0,0,0.38);
+  
+    border: 1px solid rgba(255,255,255,0.12);
+  
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  
+    font-size: 8px;
+  
+    font-weight: 800;
+  
+    letter-spacing: 1px;
+  }
+  
+  /* ============================================================
+     SIDE NAVIGATION
+     ============================================================ */
+  
+  .live-wall-side-btn {
+    position: absolute;
+  
+    top: 50%;
+  
+    transform: translateY(-50%);
+  
+    width: 48px;
+    height: 48px;
+  
     border-radius: 50%;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background 0.2s;
+  
+    border: 1px solid rgba(255,255,255,0.12);
+  
+    background: rgba(0,0,0,0.45);
+  
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  
+    color: white;
+  
     display: flex;
     align-items: center;
     justify-content: center;
+  
+    cursor: pointer;
+  
+    z-index: 5;
+  
+    transition:
+      background 0.2s ease,
+      transform 0.2s ease;
   }
   
-  .live-wall-control-btn:active {
-    transform: scale(0.92);
+  .live-wall-side-btn:hover {
+    background: rgba(255,255,255,0.14);
   }
   
-  .live-wall-control-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.2);
+  .live-wall-side-btn.left {
+    left: 16px;
   }
   
-  .live-wall-control-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+  .live-wall-side-btn.right {
+    right: 16px;
   }
   
-  .live-wall-counter {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 13px;
-    font-weight: 500;
-    min-width: 40px;
-    text-align: center;
-  }
+  /* ============================================================
+     CONTROL BAR
+     ============================================================ */
   
-  /* ============================================
-     BADGE
-     ============================================ */
-  
-  .live-wall-badge {
+  .live-wall-control-bar {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    background: rgba(239, 68, 68, 0.9);
-    color: white;
-    padding: 4px 14px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+  
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  
+    z-index: 6;
+  
+    min-height: 48px;
+  
+    padding: 7px 9px;
+  
+    border-radius: 16px;
+  
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
+  
+    background: rgba(0,0,0,0.52);
+  
+    border: 1px solid rgba(255,255,255,0.1);
+  
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
   }
   
-  .live-wall-live-dot {
-    width: 6px;
-    height: 6px;
-    background: white;
+  .live-wall-control {
+    width: 34px;
+    height: 34px;
+  
+    flex-shrink: 0;
+  
     border-radius: 50%;
-    animation: live-pulse 1.5s ease-in-out infinite;
+  
+    border: 1px solid rgba(255,255,255,0.1);
+  
+    background: rgba(255,255,255,0.08);
+  
+    color: white;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    cursor: pointer;
   }
   
-  @keyframes live-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+  .live-wall-progress {
+    flex: 1;
+  
+    display: flex;
+    align-items: center;
+  
+    gap: 3px;
+  
+    overflow: hidden;
   }
   
-  /* ============================================
+  .live-wall-progress-segment {
+    height: 3px;
+  
+    flex: 1;
+  
+    min-width: 4px;
+  
+    border: none;
+  
+    padding: 0;
+  
+    border-radius: 10px;
+  
+    background: rgba(255,255,255,0.2);
+  
+    cursor: pointer;
+  
+    transition:
+      background 0.25s ease,
+      transform 0.25s ease;
+  }
+  
+  .live-wall-progress-segment.active {
+    background: white;
+  
+    transform: scaleY(1.5);
+  }
+  
+  .live-wall-position {
+    flex-shrink: 0;
+  
+    font-size: 9px;
+  
+    color: rgba(255,255,255,0.6);
+  
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* ============================================================
+     CAPTION
+     ============================================================ */
+  
+  .live-wall-caption {
+    width: 100%;
+  
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  
+    padding: 0 5px;
+  }
+  
+  .live-wall-caption > div {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  
+  .caption-label {
+    font-size: 8px;
+  
+    letter-spacing: 1.8px;
+  
+    color: rgba(255,255,255,0.35);
+  
+    font-weight: 700;
+  }
+  
+  .caption-line {
+    width: 35px;
+    height: 1px;
+  
+    background: rgba(255,255,255,0.16);
+  }
+  
+  .caption-number {
+    font-size: 9px;
+  
+    color: rgba(255,255,255,0.3);
+  
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* ============================================================
+     EMPTY
+     ============================================================ */
+  
+  .live-wall-empty {
+    text-align: center;
+  
+    max-width: 460px;
+  
+    padding: 40px 20px;
+  }
+  
+  .live-wall-empty-icon {
+    width: 78px;
+    height: 78px;
+  
+    margin: 0 auto 24px;
+  
+    border-radius: 25px;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    color: white;
+  
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,0.13),
+        rgba(255,255,255,0.035)
+      );
+  
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  
+  .live-wall-empty-eyebrow {
+    font-size: 8px;
+  
+    letter-spacing: 2px;
+  
+    font-weight: 800;
+  
+    color: rgba(255,255,255,0.35);
+  
+    margin-bottom: 8px;
+  }
+  
+  .live-wall-empty h2 {
+    margin: 0 0 10px;
+  
+    font-size: clamp(26px, 5vw, 42px);
+  
+    letter-spacing: -1px;
+  }
+  
+  .live-wall-empty p {
+    margin: 0 auto 24px;
+  
+    max-width: 350px;
+  
+    color: rgba(255,255,255,0.45);
+  
+    font-size: 13px;
+  
+    line-height: 1.7;
+  }
+  
+  .live-wall-scan-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  
+    padding: 10px 16px;
+  
+    border-radius: 30px;
+  
+    border: 1px solid rgba(255,255,255,0.1);
+  
+    background: rgba(255,255,255,0.05);
+  
+    color: rgba(255,255,255,0.65);
+  
+    font-size: 11px;
+  }
+  
+  .scan-icon {
+    display: flex;
+  }
+  
+  /* ============================================================
      THUMBNAILS
-     ============================================ */
+     ============================================================ */
   
   .live-wall-thumbnails {
-    position: absolute;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 800px;
-    z-index: 10;
+    position: relative;
+  
+    z-index: 20;
+  
+    width: 100%;
+  
+    padding:
+      0
+      22px
+      max(16px, env(safe-area-inset-bottom));
+  }
+  
+  .live-wall-thumbnails-header {
+    max-width: 1400px;
+  
+    margin: 0 auto 7px;
+  
+    display: flex;
+    justify-content: space-between;
+  
+    font-size: 8px;
+  
+    letter-spacing: 1.5px;
+  
+    color: rgba(255,255,255,0.32);
+  
+    font-weight: 800;
   }
   
   .live-wall-thumbnails-scroll {
+    max-width: 1400px;
+  
+    margin: 0 auto;
+  
     display: flex;
-    gap: 6px;
+    gap: 7px;
+  
     overflow-x: auto;
-    padding: 8px 4px;
-    -webkit-overflow-scrolling: touch;
+  
+    padding-bottom: 3px;
+  
+    scrollbar-width: none;
   }
   
   .live-wall-thumbnails-scroll::-webkit-scrollbar {
@@ -310,90 +910,255 @@
   }
   
   .live-wall-thumbnail {
+    position: relative;
+  
     flex-shrink: 0;
-    width: 60px;
-    height: 40px;
-    border-radius: 6px;
+  
+    width: 78px;
+    height: 52px;
+  
+    padding: 0;
+  
     overflow: hidden;
+  
+    border-radius: 9px;
+  
+    border: 1px solid rgba(255,255,255,0.08);
+  
+    background: #111;
+  
     cursor: pointer;
-    border: 2px solid transparent;
-    transition: border-color 0.2s;
-    background: #1a1a2e;
+  
+    opacity: 0.48;
+  
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      border-color 0.2s ease;
+  }
+  
+  .live-wall-thumbnail:hover {
+    opacity: 0.8;
   }
   
   .live-wall-thumbnail.active {
-    border-color: #ef4444;
+    opacity: 1;
+  
+    border-color: rgba(255,255,255,0.8);
+  
+    transform: translateY(-2px);
   }
   
-  .live-wall-thumbnail img {
+  .live-wall-thumbnail img,
+  .live-wall-thumbnail video {
     width: 100%;
     height: 100%;
+  
     object-fit: cover;
+  
+    display: block;
   }
   
-  .live-wall-thumbnail-video {
-    width: 100%;
-    height: 100%;
+  .thumbnail-type {
+    position: absolute;
+  
+    right: 4px;
+    bottom: 4px;
+  
+    width: 19px;
+    height: 19px;
+  
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.3);
-    background: #1a1a2e;
+  
+    border-radius: 50%;
+  
+    background: rgba(0,0,0,0.65);
+  
+    color: white;
   }
   
-  /* ============================================
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  
+  .live-wall-footer {
+    position: absolute;
+  
+    bottom: 10px;
+    right: 18px;
+  
+    z-index: 30;
+  
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  
+    font-size: 7px;
+  
+    letter-spacing: 1.3px;
+  
+    color: rgba(255,255,255,0.18);
+  
+    pointer-events: none;
+  }
+  
+  .live-wall-footer strong {
+    color: rgba(255,255,255,0.3);
+  }
+  
+  /* ============================================================
      RESPONSIVE
-     ============================================ */
+     ============================================================ */
   
-  /* Mobile first - already optimized for mobile */
-  
-  /* Tablets and up */
   @media (min-width: 768px) {
     .live-wall-main {
-      padding: 80px 20px 100px;
+      padding:
+        8px
+        40px
+        24px;
     }
-    
-    .live-wall-mobile-controls {
-      bottom: -70px;
-      gap: 16px;
-      padding: 10px 20px;
-    }
-    
-    .live-wall-control-btn {
-      min-width: 44px;
-      min-height: 44px;
-      font-size: 18px;
-    }
-    
-    .live-wall-thumbnail {
-      width: 80px;
-      height: 52px;
-    }
-  }
   
-  /* Desktop */
-  @media (min-width: 1024px) {
-    .live-wall-main {
-      padding: 100px 24px 120px;
+    .live-wall-media-inner {
+      border-radius: 26px;
     }
-    
-    .live-wall-thumbnail {
-      width: 100px;
-      height: 64px;
-    }
-  }
   
-  /* Hide thumbnails on very small screens */
-  @media (max-width: 480px) {
     .live-wall-thumbnails {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+  
+  @media (min-width: 1200px) {
+    .live-wall-main {
+      padding-left: 70px;
+      padding-right: 70px;
+    }
+  
+    .live-wall-media-inner {
+      max-height: 720px;
+    }
+  }
+  
+  @media (max-width: 600px) {
+  
+    .live-wall-top-bar {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  
+    .live-wall-main {
+      padding:
+        4px
+        8px
+        12px;
+    }
+  
+    .live-wall-media-inner {
+      height: min(
+        calc(100dvh - 180px),
+        620px
+      );
+  
+      min-height: 300px;
+  
+      border-radius: 17px;
+    }
+  
+    .live-wall-back {
+      width: 34px;
+      height: 34px;
+    }
+  
+    .live-wall-event-label {
+      font-size: 7px;
+    }
+  
+    .live-wall-event-info h1 {
+      font-size: 14px;
+    }
+  
+    .live-wall-stats {
+      font-size: 9px;
+    }
+  
+    .live-status {
       display: none;
     }
-    
-    .live-wall-main {
-      padding: 60px 8px 70px;
+  
+    .live-wall-side-btn {
+      width: 40px;
+      height: 40px;
     }
-    
-    .live-wall-media {
-      border-radius: 8px;
+  
+    .live-wall-side-btn.left {
+      left: 9px;
     }
+  
+    .live-wall-side-btn.right {
+      right: 9px;
+    }
+  
+    .live-wall-media-type,
+    .live-wall-live-badge {
+      top: 10px;
+    }
+  
+    .live-wall-media-type {
+      left: 10px;
+    }
+  
+    .live-wall-live-badge {
+      right: 10px;
+    }
+  
+    .live-wall-control-bar {
+      left: 9px;
+      right: 9px;
+      bottom: 9px;
+    }
+  
+    .live-wall-thumbnails {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  
+    .live-wall-thumbnail {
+      width: 68px;
+      height: 46px;
+    }
+  
+    .live-wall-footer {
+      display: none;
+    }
+  
+    .live-wall-caption {
+      padding: 0 5px;
+    }
+  
+    .caption-label {
+      font-size: 7px;
+    }
+  }
+  
+  /* ============================================================
+     FULLSCREEN
+     ============================================================ */
+  
+  .live-wall-container:fullscreen {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .live-wall-fullscreen-mode .live-wall-media-inner {
+    height: calc(100dvh - 150px);
+    max-height: none;
+  }
+  
+  .live-wall-fullscreen-mode .live-wall-top-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
   }

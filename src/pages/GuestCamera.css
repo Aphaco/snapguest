@@ -1,569 +1,1518 @@
-/* GuestCamera.css - Styling only, no logic changes */
+/* ============================================================
+   SNAPGUEST — GUEST CAMERA
+   Premium mobile-first camera experience
+============================================================ */
 
-.camera-container {
-    height: 100vh;
-    max-height: 100vh;
-    overflow: hidden;
-    background: #000;
-    position: relative;
+:root {
+  --camera-bg: #050505;
+  --camera-surface: rgba(255, 255, 255, 0.08);
+  --camera-border: rgba(255, 255, 255, 0.12);
+  --camera-text: #ffffff;
+  --camera-muted: rgba(255, 255, 255, 0.62);
+  --camera-soft: rgba(255, 255, 255, 0.1);
+  --camera-red: #ff3654;
+}
+
+/* ============================================================
+   RESET
+============================================================ */
+
+.guest-camera-page,
+.guest-camera-page *,
+.guest-camera-preview-screen,
+.guest-camera-preview-screen * {
+  box-sizing: border-box;
+}
+
+.guest-camera-page button,
+.guest-camera-page a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.guest-camera-page button {
+  font-family: inherit;
+}
+
+/* ============================================================
+   MAIN PAGE
+============================================================ */
+
+.guest-camera-page {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.08),
+      transparent 35%
+    ),
+    #050505;
+  color: var(--camera-text);
+  overflow-x: hidden;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.guest-camera-page-closed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* ============================================================
+   LOADING
+============================================================ */
+
+.guest-camera-loading {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050505;
+  color: white;
+  padding: 24px;
+}
+
+.guest-camera-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.guest-camera-loader-ring {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: white;
+  animation: camera-spin 0.8s linear infinite;
+}
+
+@keyframes camera-spin {
+  to {
+    transform: rotate(360deg);
   }
-  
-  /* ============================================
-     ANIMATIONS
-     ============================================ */
-  
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+}
+
+.spin {
+  animation: camera-spin 0.8s linear infinite;
+}
+
+/* ============================================================
+   ERROR CARD
+============================================================ */
+
+.guest-camera-error-card {
+  width: min(100%, 420px);
+  padding: 34px 26px;
+  border: 1px solid var(--camera-border);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px);
+  text-align: center;
+}
+
+.guest-camera-error-card h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
+.guest-camera-error-card p {
+  margin: 0 0 24px;
+  color: var(--camera-muted);
+  line-height: 1.6;
+}
+
+/* ============================================================
+   CLOSED EVENT
+============================================================ */
+
+.guest-camera-closed-card {
+  width: min(100%, 460px);
+  text-align: center;
+  padding: 42px 28px;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(24px);
+}
+
+.guest-camera-brand-mark {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 28px;
+}
+
+.guest-camera-eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.guest-camera-closed-card h1 {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 8vw, 42px);
+  letter-spacing: -0.04em;
+}
+
+.guest-camera-closed-card p {
+  max-width: 360px;
+  margin: 0 auto 26px;
+  color: var(--camera-muted);
+  line-height: 1.6;
+}
+
+/* ============================================================
+   TOP BAR
+============================================================ */
+
+.guest-camera-topbar {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 68px;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    16px
+    12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.82),
+      rgba(0, 0, 0, 0)
+    );
+  pointer-events: none;
+}
+
+.guest-camera-topbar > * {
+  pointer-events: auto;
+}
+
+.guest-camera-icon-button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(0, 0, 0, 0.28);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.guest-camera-icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.guest-camera-icon-button:active {
+  transform: scale(0.92);
+}
+
+.guest-camera-event-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.guest-camera-event-label {
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.guest-camera-event-subtitle {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
+}
+
+/* ============================================================
+   MAIN
+============================================================ */
+
+.guest-camera-main {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding:
+    calc(72px + env(safe-area-inset-top))
+    10px
+    calc(18px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ============================================================
+   CAMERA STAGE
+============================================================ */
+
+.guest-camera-stage {
+  position: relative;
+  width: min(
+    100%,
+    calc(100dvh - 190px),
+    560px
+  );
+  max-height: calc(100dvh - 190px);
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #111;
+  isolation: isolate;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.guest-camera-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================================
+   VIDEO
+============================================================ */
+
+.guest-camera-video {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: #111;
+  filter: none;
+}
+
+.guest-camera-video.is-front-camera {
+  transform: scaleX(-1);
+}
+
+/*
+ * Apply selected filter to the LIVE PREVIEW.
+ */
+
+.guest-camera-page
+  .guest-camera-video {
+  transition: filter 0.25s ease;
+}
+
+/*
+ * We use data-free CSS by changing the video
+ * filter through React inline style would be ideal,
+ * but the stage also needs the selected filter.
+ *
+ * This is handled below through these selectors
+ * via the stage's current filter class if you want
+ * to extend them.
+ */
+
+/* ============================================================
+   VIGNETTE
+============================================================ */
+
+.guest-camera-vignette {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.35),
+      transparent 24%,
+      transparent 68%,
+      rgba(0, 0, 0, 0.55)
+    ),
+    radial-gradient(
+      ellipse at center,
+      transparent 50%,
+      rgba(0, 0, 0, 0.24) 100%
+    );
+}
+
+/* ============================================================
+   TOP CAMERA OVERLAY
+============================================================ */
+
+.guest-camera-overlay-top {
+  position: absolute;
+  z-index: 10;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.guest-camera-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.guest-camera-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #62e88d;
+  box-shadow: 0 0 12px rgba(98, 232, 141, 0.8);
+}
+
+.guest-camera-status-dot.recording {
+  background: var(--camera-red);
+  box-shadow:
+    0 0 12px rgba(255, 54, 84, 0.9);
+  animation: recording-pulse 1s infinite;
+}
+
+@keyframes recording-pulse {
+  50% {
+    opacity: 0.35;
   }
-  
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+}
+
+.guest-camera-recording-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: rgba(255, 54, 84, 0.9);
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   CAMERA PREPARING
+============================================================ */
+
+.guest-camera-preparing {
+  position: absolute;
+  z-index: 15;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(3px);
+}
+
+.guest-camera-preparing strong {
+  font-size: 15px;
+}
+
+.guest-camera-preparing span {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 12px;
+}
+
+.guest-camera-preparing-spinner {
+  width: 38px;
+  height: 38px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: white;
+  animation: camera-spin 0.8s linear infinite;
+}
+
+/* ============================================================
+   CAMERA ERROR
+============================================================ */
+
+.guest-camera-error-overlay {
+  position: absolute;
+  z-index: 25;
+  inset: 0;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(12, 12, 12, 0.95),
+      rgba(4, 4, 4, 0.97)
+    );
+}
+
+.guest-camera-error-overlay h3 {
+  margin: 14px 0 7px;
+  font-size: 20px;
+}
+
+.guest-camera-error-overlay p {
+  max-width: 320px;
+  margin: 0 0 20px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.guest-camera-error-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 54, 84, 0.13);
+  color: #ff6177;
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.guest-camera-retry-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: white;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ============================================================
+   FILTER PANEL
+============================================================ */
+
+.guest-camera-filter-panel {
+  position: absolute;
+  z-index: 20;
+  left: 12px;
+  right: 12px;
+  bottom: 108px;
+  padding: 13px;
+  border-radius: 20px;
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.3);
+}
+
+.guest-camera-filter-panel-title {
+  margin: 0 0 9px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.guest-camera-filter-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.guest-camera-filter-list::-webkit-scrollbar {
+  display: none;
+}
+
+.guest-camera-filter {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.guest-camera-filter.active {
+  color: white;
+}
+
+.guest-camera-filter-preview {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(
+      145deg,
+      #eee,
+      #777
+    );
+  color: white;
+  font-size: 23px;
+  font-weight: 800;
+  box-shadow:
+    0 0 0 2px transparent;
+}
+
+.guest-camera-filter.active
+  .guest-camera-filter-preview {
+  box-shadow:
+    0 0 0 2px white,
+    0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================
+   BOTTOM CAMERA CONTROLS
+============================================================ */
+
+.guest-camera-overlay-bottom {
+  position: absolute;
+  z-index: 12;
+  left: 14px;
+  right: 14px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.guest-camera-side-button {
+  width: 62px;
+  min-height: 54px;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 16px;
+}
+
+.guest-camera-side-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.guest-camera-side-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.guest-camera-side-button-icon {
+  font-size: 19px;
+}
+
+.guest-camera-side-button span:last-child {
+  max-width: 62px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 9px;
+}
+
+.guest-camera-side-button.active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================================
+   SHUTTER
+============================================================ */
+
+.guest-camera-shutter {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  padding: 5px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 7px 25px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.guest-camera-shutter:active {
+  transform: scale(0.9);
+}
+
+.guest-camera-shutter:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.guest-camera-shutter-inner {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: white;
+  transition:
+    transform 0.2s ease,
+    border-radius 0.2s ease,
+    background 0.2s ease;
+}
+
+.guest-camera-shutter.video-mode {
+  border-color: var(--camera-red);
+}
+
+.guest-camera-shutter.video-mode
+  .guest-camera-shutter-inner {
+  width: 56px;
+  height: 56px;
+  background: var(--camera-red);
+}
+
+.guest-camera-shutter.recording
+  .guest-camera-shutter-inner {
+  width: 31px;
+  height: 31px;
+  border-radius: 8px;
+  background: var(--camera-red);
+}
+
+/* ============================================================
+   MODE SWITCHER
+============================================================ */
+
+.guest-camera-mode-switcher {
+  margin: 14px auto 0;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.guest-camera-mode-switcher button {
+  min-width: 105px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.guest-camera-mode-switcher button.active {
+  color: #111;
+  background: white;
+}
+
+.guest-camera-mode-switcher button:disabled {
+  opacity: 0.45;
+}
+
+/* ============================================================
+   FOOTER
+============================================================ */
+
+.guest-camera-footer {
+  width: min(100%, 560px);
+  margin-top: 15px;
+  padding: 10px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.guest-camera-footer-action {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: white;
+  text-decoration: none;
+  border-radius: 15px;
+  padding: 7px;
+}
+
+.guest-camera-footer-action:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.guest-camera-footer-action > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.guest-camera-footer-action strong {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.guest-camera-footer-action small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+}
+
+.guest-camera-footer-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.guest-camera-upload-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.guest-camera-upload-counter span {
+  color: white;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.guest-camera-upload-counter small {
+  font-size: 9px;
+}
+
+/* ============================================================
+   INFO
+============================================================ */
+
+.guest-camera-info-button {
+  margin: 4px auto 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.guest-camera-info-panel {
+  width: min(100%, 560px);
+  margin: 10px auto 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  display: grid;
+  gap: 11px;
+}
+
+.guest-camera-info-panel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.guest-camera-info-panel strong {
+  font-size: 11px;
+}
+
+.guest-camera-info-panel span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   PRIMARY BUTTON
+============================================================ */
+
+.guest-camera-primary-button {
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: white;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* ============================================================
+   PREVIEW SCREEN
+============================================================ */
+
+.guest-camera-preview-screen {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.07),
+      transparent 35%
+    ),
+    #070707;
+  color: white;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.guest-camera-preview-topbar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  min-height: 70px;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    16px
+    12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(7, 7, 7, 0.88);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.guest-camera-preview-close {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.guest-camera-preview-topbar > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.guest-camera-preview-topbar > div span {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.guest-camera-preview-topbar > div small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+}
+
+.guest-camera-preview-number {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ============================================================
+   PREVIEW CONTENT
+============================================================ */
+
+.guest-camera-preview-content {
+  width: min(100%, 620px);
+  margin: 0 auto;
+  padding: 18px 14px 30px;
+}
+
+.guest-camera-preview-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 68vh;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #111;
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.45);
+}
+
+.guest-camera-preview-image,
+.guest-camera-preview-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.guest-camera-preview-filter-badge {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(12px);
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ============================================================
+   PUBLISH CARD
+============================================================ */
+
+.guest-camera-publish-card {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.guest-camera-publish-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+
+.guest-camera-publish-heading > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.guest-camera-publish-heading strong {
+  font-size: 14px;
+}
+
+.guest-camera-publish-heading span {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+}
+
+.guest-camera-publish-icon {
+  width: 37px;
+  height: 37px;
+  flex: 0 0 37px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guest-camera-publish-options {
+  display: grid;
+  gap: 8px;
+}
+
+.guest-camera-publish-options button {
+  width: 100%;
+  min-height: 65px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  color: white;
+  cursor: pointer;
+}
+
+.guest-camera-publish-options button.selected {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.publish-option-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.publish-option-icon.private {
+  font-size: 17px;
+}
+
+.guest-camera-publish-options button > div:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.guest-camera-publish-options strong {
+  font-size: 11px;
+}
+
+.guest-camera-publish-options span {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.publish-check {
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selected .publish-check {
+  background: white;
+  color: #111;
+  border-color: white;
+}
+
+/* ============================================================
+   PREVIEW ACTIONS
+============================================================ */
+
+.guest-camera-preview-actions {
+  display: grid;
+  grid-template-columns: 0.85fr 1.5fr;
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.guest-camera-retake-button,
+.guest-camera-upload-button {
+  min-height: 52px;
+  border-radius: 17px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.guest-camera-retake-button {
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+}
+
+.guest-camera-upload-button {
+  background: white;
+  color: #111;
+  border-color: white;
+}
+
+.guest-camera-retake-button:disabled,
+.guest-camera-upload-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   UPLOAD SPINNER
+============================================================ */
+
+.upload-spinner,
+.mini-spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: currentColor;
+  animation: camera-spin 0.7s linear infinite;
+}
+
+.upload-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.mini-spinner {
+  width: 14px;
+  height: 14px;
+}
+
+/* ============================================================
+   GALLERY OVERLAY
+============================================================ */
+
+.guest-camera-gallery-overlay {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: flex-end;
+}
+
+.guest-camera-gallery-panel {
+  width: 100%;
+  max-height: 92vh;
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding:
+    20px
+    16px
+    calc(20px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background:
+    linear-gradient(
+      145deg,
+      #151515,
+      #080808
+    );
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.guest-camera-gallery-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.guest-camera-gallery-header h2 {
+  margin: 7px 0 3px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.guest-camera-gallery-header p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+}
+
+.gallery-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff5b70;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.gallery-live-indicator span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff4d68;
+  box-shadow: 0 0 10px rgba(255, 77, 104, 0.8);
+}
+
+.guest-camera-gallery-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.guest-camera-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.guest-camera-gallery-item {
+  position: relative;
+  aspect-ratio: 1 / 1.15;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #151515;
+}
+
+.guest-camera-gallery-item img,
+.guest-camera-gallery-item video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.gallery-video-badge {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.guest-camera-gallery-empty {
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.guest-camera-gallery-empty > div {
+  font-size: 45px;
+  margin-bottom: 10px;
+}
+
+.guest-camera-gallery-empty h3 {
+  margin: 0 0 5px;
+  font-size: 17px;
+}
+
+.guest-camera-gallery-empty p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+}
+
+.guest-camera-open-wall {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 15px;
+  border-radius: 15px;
+  background: white;
+  color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ============================================================
+   HIDDEN CANVAS
+============================================================ */
+
+.guest-camera-hidden-canvas {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  left: -9999px;
+  top: -9999px;
+  pointer-events: none;
+}
+
+/* ============================================================
+   TABLET
+============================================================ */
+
+@media (min-width: 600px) {
+  .guest-camera-main {
+    padding-top: 82px;
   }
-  
-  @keyframes pulse {
-    0%, 100% { 
-      opacity: 1; 
-    }
-    50% { 
-      opacity: 0.5; 
-    }
+
+  .guest-camera-stage {
+    width: min(
+      520px,
+      calc(100dvh - 200px)
+    );
   }
-  
-  /* ============================================
-     PERMISSION OVERLAY
-     ============================================ */
-  
-  .permission-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    background-color: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    display: flex;
-    flex-direction: column;
+
+  .guest-camera-preview-content {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .guest-camera-gallery-overlay {
+    align-items: center;
     justify-content: center;
-    align-items: center;
-    padding: 20px;
   }
-  
-  .permission-overlay .content {
-    text-align: center;
-    max-width: 340px;
-    width: 100%;
-    color: white;
-  }
-  
-  .permission-overlay .icon {
-    font-size: 72px;
-    margin-bottom: 16px;
-  }
-  
-  .permission-overlay .title {
-    font-weight: 700;
-    margin-bottom: 12px;
-    font-size: clamp(18px, 5vw, 24px);
-  }
-  
-  .permission-overlay .subtitle {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: clamp(13px, 3.5vw, 15px);
-    line-height: 1.5;
-    margin-bottom: 16px;
-  }
-  
-  .permission-overlay .error {
-    font-size: 12px;
-    text-align: left;
-  }
-  
-  .permission-overlay .btn-allow {
-    padding: 14px 28px;
-    font-size: clamp(14px, 4vw, 16px);
-    font-weight: 600;
-    border-radius: 50px;
-    min-height: 56px;
-    width: 100%;
-    border: none;
-    background: #0ea5e9;
-    color: white;
-    transition: background 0.2s ease;
-  }
-  
-  .permission-overlay .btn-allow:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-  
-  .permission-overlay .btn-allow:hover:not(:disabled) {
-    background: #0284c7;
-  }
-  
-  .permission-overlay .btn-check {
-    font-size: clamp(12px, 3vw, 14px);
-    padding: 10px 20px;
-    border-radius: 50px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.8);
-    transition: background 0.2s ease;
-  }
-  
-  .permission-overlay .btn-check:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  
-  .permission-overlay .btn-check:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  .permission-overlay .device-info {
-    margin-top: 8px;
-    font-size: clamp(10px, 2.5vw, 11px);
-    opacity: 0.7;
-    color: rgba(255, 255, 255, 0.5);
-  }
-  
-  /* ============================================
-     TOP BAR
-     ============================================ */
-  
-  .camera-top-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: clamp(10px, 3vw, 16px) clamp(12px, 4vw, 20px);
-    padding-top: clamp(12px, 4vw, 20px);
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-  .camera-top-bar .event-info {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .camera-top-bar .event-name {
-    color: white;
-    font-weight: 700;
-    font-size: clamp(14px, 4vw, 18px);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .camera-top-bar .event-desc {
-    color: rgba(255, 255, 255, 0.75);
-    font-size: clamp(10px, 2.5vw, 12px);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .camera-top-bar .actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-  
-  .camera-top-bar .btn-live {
-    background: rgba(239, 68, 68, 0.3);
-    width: clamp(32px, 8vw, 38px);
-    height: clamp(32px, 8vw, 38px);
-    border-radius: 50%;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s ease;
-    cursor: pointer;
-    color: #ef4444;
-  }
-  
-  .camera-top-bar .btn-live:hover {
-    background: rgba(239, 68, 68, 0.5);
-  }
-  
-  .camera-top-bar .upload-counter {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    padding: clamp(4px, 1.5vw, 8px) clamp(10px, 3vw, 16px);
-    border-radius: 20px;
-    font-size: clamp(11px, 3vw, 13px);
-    font-weight: 500;
+
+  .guest-camera-gallery-panel {
+    width: min(720px, 94vw);
+    max-height: 88vh;
+    border-radius: 28px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    color: white;
   }
-  
-  .camera-top-bar .btn-close {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    width: clamp(32px, 8vw, 38px);
-    height: clamp(32px, 8vw, 38px);
-    border-radius: 50%;
-    border: none;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(16px, 4vw, 20px);
-    transition: background 0.2s ease;
-    cursor: pointer;
+}
+
+/* ============================================================
+   DESKTOP
+============================================================ */
+
+@media (min-width: 900px) {
+  .guest-camera-main {
+    padding-top: 86px;
   }
-  
-  .camera-top-bar .btn-close:hover {
-    background: rgba(255, 255, 255, 0.25);
+
+  .guest-camera-stage {
+    width: 500px;
+    max-height: calc(100dvh - 190px);
   }
-  
-  /* ============================================
-     CAMERA VIEWPORT
-     ============================================ */
-  
-  .camera-viewport {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: #000;
-    overflow: hidden;
+
+  .guest-camera-topbar {
+    padding-left: 28px;
+    padding-right: 28px;
   }
-  
-  .camera-viewport video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: #000;
-    display: block;
+
+  .guest-camera-event-label {
+    max-width: 400px;
   }
-  
-  .camera-viewport canvas {
-    display: none;
+
+  .guest-camera-footer {
+    margin-top: 13px;
   }
-  
-  .camera-viewport .loading-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    text-align: center;
+}
+
+/* ============================================================
+   SMALL PHONES
+============================================================ */
+
+@media (max-height: 700px) {
+  .guest-camera-main {
+    padding-top: 68px;
   }
-  
-  .camera-viewport .loading-overlay p {
-    margin-top: 12px;
-    font-size: 14px;
+
+  .guest-camera-stage {
+    width: min(
+      100%,
+      calc(100dvh - 154px)
+    );
+    border-radius: 22px;
   }
-  
-  /* ============================================
-     CAMERA CONTROLS
-     ============================================ */
-  
-  .camera-controls {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: clamp(12px, 3vw, 20px) clamp(16px, 4vw, 24px) clamp(20px, 5vw, 30px);
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
-    z-index: 10;
+
+  .guest-camera-overlay-bottom {
+    bottom: 11px;
   }
-  
-  /* ============================================
-     MODE SELECTOR
-     ============================================ */
-  
-  .camera-mode-selector {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    padding: clamp(4px, 1vw, 6px);
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 12px;
-    margin-bottom: clamp(12px, 3vw, 16px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+
+  .guest-camera-shutter {
+    width: 66px;
+    height: 66px;
   }
-  
-  .camera-mode-selector .mode-btn {
-    padding: clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 18px);
-    border-radius: 8px;
-    border: none;
-    font-size: clamp(10px, 2.5vw, 12px);
-    font-weight: 500;
-    white-space: nowrap;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    cursor: pointer;
+
+  .guest-camera-shutter-inner {
+    width: 49px;
+    height: 49px;
   }
-  
-  .camera-mode-selector .mode-btn.active {
-    background: white;
-    color: black;
-    font-weight: 600;
+
+  .guest-camera-mode-switcher {
+    margin-top: 7px;
   }
-  
-  .camera-mode-selector .mode-btn.inactive {
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+
+  .guest-camera-mode-switcher button {
+    height: 32px;
+    min-width: 90px;
   }
-  
-  .camera-mode-selector .mode-btn.inactive:hover {
-    background: rgba(255, 255, 255, 0.1);
+
+  .guest-camera-footer {
+    margin-top: 5px;
   }
-  
-  /* ============================================
-     SHUTTER ROW
-     ============================================ */
-  
-  .camera-shutter-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(16px, 4vw, 24px);
+}
+
+/* ============================================================
+   REDUCE MOTION
+============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-  
-  .camera-shutter-row .camera-action-btn {
-    width: clamp(44px, 10vw, 52px);
-    height: clamp(44px, 10vw, 52px);
-    border-radius: 50%;
-    border: none;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(18px, 4.5vw, 22px);
-    transition: background 0.2s ease;
-    cursor: pointer;
-  }
-  
-  .camera-shutter-row .camera-action-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-  }
-  
-  .camera-shutter-row .camera-action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  .camera-shutter-row .camera-shutter {
-    width: clamp(64px, 16vw, 76px);
-    height: clamp(64px, 16vw, 76px);
-    border-radius: 50%;
-    border: 4px solid white;
-    background: rgba(255, 255, 255, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  
-  .camera-shutter-row .camera-shutter:active {
-    transform: scale(0.92);
-  }
-  
-  .camera-shutter-row .camera-shutter-inner {
-    width: clamp(48px, 12vw, 60px);
-    height: clamp(48px, 12vw, 60px);
-    border-radius: 50%;
-    background: white;
-    transition: all 0.3s ease;
-  }
-  
-  .camera-shutter-row .camera-shutter.recording .camera-shutter-inner {
-    background: #ef4444;
-    border-radius: 8px;
-    width: clamp(28px, 6vw, 36px);
-    height: clamp(28px, 6vw, 36px);
-  }
-  
-  /* ============================================
-     MODE TOGGLE
-     ============================================ */
-  
-  .mode-toggle {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 8px;
-  }
-  
-  .mode-toggle .btn-mode {
-    font-size: clamp(11px, 2.8vw, 13px);
-    padding: clamp(6px, 1.5vw, 8px) clamp(16px, 4vw, 24px);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.8);
-    transition: all 0.2s ease;
-    cursor: pointer;
-  }
-  
-  .mode-toggle .btn-mode.active {
-    background: white;
-    color: black;
-    border-color: white;
-  }
-  
-  .mode-toggle .btn-mode:hover:not(.active) {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  
-  .mode-toggle .btn-mode svg {
-    margin-right: 4px;
-  }
-  
-  /* ============================================
-     RECORDING BADGE
-     ============================================ */
-  
-  .recording-badge {
-    text-align: center;
-    color: white;
-    margin-top: 8px;
-  }
-  
-  .recording-badge .badge {
-    background: #ef4444;
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-size: clamp(11px, 2.8vw, 13px);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  
-  /* ============================================
-     GALLERY
-     ============================================ */
-  
-  .gallery-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-  }
-  
-  .gallery-item {
-    position: relative;
-    aspect-ratio: 1;
-    overflow: hidden;
-    border-radius: 8px;
-    background: #f0f0f0;
-  }
-  
-  .gallery-item img,
-  .gallery-item video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .gallery-item .video-badge {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  /* ============================================
-     HIDE SCROLLBAR
-     ============================================ */
-  
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  
-  /* ============================================
-     RESPONSIVE TOUCH TARGETS
-     ============================================ */
-  
-  @media (max-width: 480px) {
-    .camera-shutter-row .camera-shutter {
-      width: 68px;
-      height: 68px;
-    }
-    
-    .camera-shutter-row .camera-shutter-inner {
-      width: 52px;
-      height: 52px;
-    }
-    
-    .camera-shutter-row .camera-action-btn {
-      width: 48px;
-      height: 48px;
-    }
-    
-    .gallery-grid {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
-    }
-  }
-  
-  /* ============================================
-     SAFE AREA FOR NOTCHED PHONES
-     ============================================ */
-  
-  @supports (padding: max(0px)) {
-    .camera-top-bar {
-      padding-top: max(clamp(12px, 4vw, 20px), env(safe-area-inset-top));
-    }
-    .camera-controls {
-      padding-bottom: max(clamp(20px, 5vw, 30px), env(safe-area-inset-bottom));
-    }
-  }
-  
-  /* ============================================
-     EMPTY STATE
-     ============================================ */
-  
-  .empty-state .icon {
-    font-size: 48px;
-    display: block;
-    margin-bottom: 16px;
-  }
-  
-  .empty-state h5 {
-    font-family: 'Playfair Display', serif;
-    margin-bottom: 8px;
-  }
-  
-  .empty-state p {
-    color: #6c757d;
-    margin-bottom: 16px;
-  }
+}
